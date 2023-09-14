@@ -1,0 +1,10 @@
+203.592217922Best score:0 with testcase0
+Throughput stats: 
+Total Execs: 0
+Througput:0.0
+Throughtput Fuzzer: 0.0
+Parse Time: 0.00101113319397
+Total time elapsed: 560.795468092
+Symbolic Execution Time: 203.592217922
+Infer Loop Time: 1694719070.66
+Parse Model Time: 7.86781311035e-06

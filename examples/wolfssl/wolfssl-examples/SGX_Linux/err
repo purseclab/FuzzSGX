@@ -1,0 +1,94 @@
+untrusted/App.c:22: warning: "__USE_GNU" redefined
+   22 | #define __USE_GNU
+      | 
+<command-line>: note: this is the location of the previous definition
+In file included from /home/arslan/Documents/customAbortSDK/sgxsdk/include/sgx_urts.h:40,
+                 from untrusted/App.h:25,
+                 from untrusted/App.c:24:
+untrusted/Wolfssl_Enclave_u.h:118:78: warning: ‘struct rusage’ declared inside parameter list will not be visible outside of this definition or declaration
+  118 | int SGX_UBRIDGE(SGX_NOCONVENTION, libsfuzz_ocall_getrusage, (int who, struct rusage* usage));
+      |                                                                              ^~~~~~
+/home/arslan/Documents/customAbortSDK/sgxsdk/include/sgx_defs.h:49:55: note: in definition of macro ‘SGX_UBRIDGE’
+   49 | # define SGX_UBRIDGE(attr, fname, args...) attr fname args
+      |                                                       ^~~~
+untrusted/Wolfssl_Enclave_u.h:150:84: warning: ‘struct stat’ declared inside parameter list will not be visible outside of this definition or declaration
+  150 | int SGX_UBRIDGE(SGX_NOCONVENTION, libsfuzz_ocall_fxstat, (int vers, int fd, struct stat* buf));
+      |                                                                                    ^~~~
+/home/arslan/Documents/customAbortSDK/sgxsdk/include/sgx_defs.h:49:55: note: in definition of macro ‘SGX_UBRIDGE’
+   49 | # define SGX_UBRIDGE(attr, fname, args...) attr fname args
+      |                                                       ^~~~
+untrusted/Wolfssl_Enclave_u.h:158:83: warning: ‘struct rlimit’ declared inside parameter list will not be visible outside of this definition or declaration
+  158 | int SGX_UBRIDGE(SGX_NOCONVENTION, libsfuzz_ocall_getrlimit, (int resource, struct rlimit* rlim));
+      |                                                                                   ^~~~~~
+/home/arslan/Documents/customAbortSDK/sgxsdk/include/sgx_defs.h:49:55: note: in definition of macro ‘SGX_UBRIDGE’
+   49 | # define SGX_UBRIDGE(attr, fname, args...) attr fname args
+      |                                                       ^~~~
+untrusted/Wolfssl_Enclave_u.h:162:89: warning: ‘struct rlimit’ declared inside parameter list will not be visible outside of this definition or declaration
+  162 | int SGX_UBRIDGE(SGX_NOCONVENTION, libsfuzz_ocall_setrlimit, (int resource, const struct rlimit* rlim));
+      |                                                                                         ^~~~~~
+/home/arslan/Documents/customAbortSDK/sgxsdk/include/sgx_defs.h:49:55: note: in definition of macro ‘SGX_UBRIDGE’
+   49 | # define SGX_UBRIDGE(attr, fname, args...) attr fname args
+      |                                                       ^~~~
+untrusted/App.c: In function ‘sigabrt_sigaction’:
+untrusted/App.c:150:34: error: ‘sys_signame’ undeclared (first use in this function)
+  150 |     hprintf("Signal Type: %s\n", sys_signame[info->si_signo]);
+      |                                  ^~~~~~~~~~~
+untrusted/App.c:150:34: note: each undeclared identifier is reported only once for each function it appears in
+untrusted/App.c: In function ‘agent_init’:
+untrusted/App.c:200:53: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
+  200 |             { (uint64_t) &kill_systemd, (uint64_t) ((unsigned)(&kill_systemd) +0x200) , 0 }
+      |                                                     ^
+untrusted/App.c:215:11: warning: passing argument 1 of ‘hprintf’ from incompatible pointer type [-Wincompatible-pointer-types]
+  215 |   hprintf(stderr, "GET_HOST_CONFIG\n");
+      |           ^~~~~~
+      |           |
+      |           struct _IO_FILE *
+In file included from untrusted/App.c:55:
+/home/arslan/Documents/kAFL/kafl/examples/nyx_api.h:122:34: note: expected ‘const char *’ but argument is of type ‘struct _IO_FILE *’
+  122 | static void hprintf(const char * format, ...){
+      |                     ~~~~~~~~~~~~~^~~~~~
+untrusted/App.c:216:11: warning: passing argument 1 of ‘hprintf’ from incompatible pointer type [-Wincompatible-pointer-types]
+  216 |   hprintf(stderr, "\thost magic:  0x%x, version: 0x%x\n",
+      |           ^~~~~~
+      |           |
+      |           struct _IO_FILE *
+In file included from untrusted/App.c:55:
+/home/arslan/Documents/kAFL/kafl/examples/nyx_api.h:122:34: note: expected ‘const char *’ but argument is of type ‘struct _IO_FILE *’
+  122 | static void hprintf(const char * format, ...){
+      |                     ~~~~~~~~~~~~~^~~~~~
+untrusted/App.c:218:11: warning: passing argument 1 of ‘hprintf’ from incompatible pointer type [-Wincompatible-pointer-types]
+  218 |   hprintf(stderr, "\tbitmap size: 0x%x, ijon:    0x%x\n",
+      |           ^~~~~~
+      |           |
+      |           struct _IO_FILE *
+In file included from untrusted/App.c:55:
+/home/arslan/Documents/kAFL/kafl/examples/nyx_api.h:122:34: note: expected ‘const char *’ but argument is of type ‘struct _IO_FILE *’
+  122 | static void hprintf(const char * format, ...){
+      |                     ~~~~~~~~~~~~~^~~~~~
+untrusted/App.c:220:11: warning: passing argument 1 of ‘hprintf’ from incompatible pointer type [-Wincompatible-pointer-types]
+  220 |   hprintf(stderr, "\tpayload size: %u KB\n",
+      |           ^~~~~~
+      |           |
+      |           struct _IO_FILE *
+In file included from untrusted/App.c:55:
+/home/arslan/Documents/kAFL/kafl/examples/nyx_api.h:122:34: note: expected ‘const char *’ but argument is of type ‘struct _IO_FILE *’
+  122 | static void hprintf(const char * format, ...){
+      |                     ~~~~~~~~~~~~~^~~~~~
+untrusted/App.c:222:11: warning: passing argument 1 of ‘hprintf’ from incompatible pointer type [-Wincompatible-pointer-types]
+  222 |   hprintf(stderr, "\tworker id: %d\n", host_config.worker_id);
+      |           ^~~~~~
+      |           |
+      |           struct _IO_FILE *
+In file included from untrusted/App.c:55:
+/home/arslan/Documents/kAFL/kafl/examples/nyx_api.h:122:34: note: expected ‘const char *’ but argument is of type ‘struct _IO_FILE *’
+  122 | static void hprintf(const char * format, ...){
+      |                     ~~~~~~~~~~~~~^~~~~~
+untrusted/App.c: In function ‘main’:
+untrusted/App.c:489:12: warning: assignment to ‘char’ from ‘char *’ makes integer from pointer without a cast [-Wint-conversion]
+  489 |   list [1] = "\0";
+      |            ^
+untrusted/App.c:570:2: warning: implicit declaration of function ‘waitpid’ [-Wimplicit-function-declaration]
+  570 |  waitpid(pid, &status, 0);
+      |  ^~~~~~~
+make[1]: *** [untrusted/App.o] Error 1
+make: *** [all] Error 2

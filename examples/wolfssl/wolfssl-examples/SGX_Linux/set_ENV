@@ -1,0 +1,2 @@
+SGX_WOLFSSL_LIB=/home/zou116/github/libFuzzSGX.old/example/wolfssl/IDE/LINUX-SGX/
+WOLFSSL_ROOT=/home/zou116/github/libFuzzSGX.old/example/wolfssl

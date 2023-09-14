@@ -1,0 +1,2 @@
+template.cpp ocall_print_string 81 void ocall_print_string(const char *str)
+template_kafl.cpp ocall_print_string 658 void ocall_print_string(const char *str)

@@ -1,0 +1,6 @@
+source ~/Documents/customAbortSDK/sgxsdk/environment
+export CC=afl-gcc
+export CXX=afl-g++
+export LIB_SFUZZ=./libFuzzSGX/
+export SGX_WOLFSSL_LIB=./LIBS/
+export WOLFSSL_ROOT=/home/arslan/Documents/sgxsdk/sgxsdk/SampleCode/libFuzzSGX/example/wolfssl/wolfssl-examples/SGX_Linux/../../

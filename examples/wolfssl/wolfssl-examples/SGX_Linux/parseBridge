@@ -1,0 +1,1603 @@
+#!/usr/bin/python
+import angr,claripy
+import sys, getopt
+import os.path
+from random import randrange,shuffle
+import string
+import random
+from cStringIO import StringIO
+from IPython import embed
+import time
+import datetime
+from subprocess import Popen
+import atexit
+numFuncs = 0
+doSymExec = True
+startTime =0
+parseTimeStart = 0
+parseModelTime = 0
+symExecTime = 0
+parseClusterTime = 0
+inferModelTime = 0
+mainLoopStart = 0
+totalExecs = 0
+mystdout = StringIO()
+x={}
+ocalls={}
+m={}
+unfuzzSnippet=[]
+fuzzSnippet=[]
+sizeMap={}
+#
+typedefs = {}
+stDef = 0
+debugPrint = 0
+funcWritten = 0
+parseBuf=[]
+structs={}
+aliases={}
+funcWithRet = []
+isEnum = False
+current = None
+results = None
+seedTestcase = None 
+ec = {}
+targetFuncs= []
+import subprocess
+bestScore = 0
+baselineScore = 0
+bestIndex = 0
+testcaseDir = ""
+check = "if (ret != SGX_SUCCESS)\n	printf(\"Failure Code: %d\",ret); \n"
+import signal
+import sys
+import struct
+
+class sgx_is_within_enclave(angr.SimProcedure):
+    def run(self):
+        return 1
+
+class abort(angr.SimProcedure):
+    NO_RET = True
+    def run(self):
+        self.exit(1)
+
+class sgx_lfence(angr.SimProcedure):
+    def run(self):
+        return
+
+class sgx_is_outside_enclave(angr.SimProcedure):
+    def run(self):
+        return 1
+
+class printf(angr.SimProcedure):
+    def run(self):
+        return
+
+class sgx_ocall(angr.SimProcedure):
+    def run(self):
+        return 0
+
+def signal_handler(sig, frame):
+    results.write("Best score:" + str(bestScore) + " with testcase" +str(bestIndex) + "\n")
+    results.write("Throughput stats: " +"\n")
+    x = time.strptime('00:01:00,000'.split(',')[0],'%H:%M:%S')
+    datetime.timedelta(hours=x.tm_hour,minutes=x.tm_min,seconds=x.tm_sec).total_seconds()
+    timeElapsed = time.time() - startTime
+    fuzzTime = time.time() - mainLoopStart
+    results.write("Total Execs: " + str(totalExecs) + "\n")
+    results.write("Througput:" + str(totalExecs/timeElapsed) +"\n")
+    results.write("Throughtput Fuzzer: " + str(totalExecs/fuzzTime) + "\n")
+    results.write("Parse Time: "+ str(parseTimeStart) +"\n")
+    results.write("Total time elapsed: " + str(timeElapsed) +"\n")
+    results.write("Symbolic Execution Time: " + str(symExecTime) +"\n")
+    results.write("Infer Loop Time: " + str(inferModelTime) +"\n")
+    results.write("Parse Model Time: " + str(parseModelTime) +"\n")
+    cleanup()
+    sys.exit(0)
+
+aliases={}
+def parseStruct(parseBuf, anontag=""):
+    members = parseBuf[1:-1]
+    tag = parseBuf[0]
+    #stdioPrint("Parsing :" + tag)
+    temp= tag.replace("typedef ","").replace("{", "").rstrip()
+    if temp == "struct" :
+        #stdioPrint("Anonymous struct")
+        tag = anontag
+        temp = anontag
+    structs[temp]={}
+    if ("typedef" in tag):
+        alias = parseBuf[-1].replace(";","").replace("}","").strip()
+        tag= tag.replace("typedef ","").replace("{", "").rstrip()
+        structs[tag]['alias'] = alias
+        aliases[alias] = structs[tag]
+        #scPrint( "Tag is:" + tag)
+        #scPrint( "Alias is:" + alias)
+
+    structs[tag]['numMembers']=len(members)
+    structs[tag]['mem'] = {}
+    tempbuf = []
+    cont = False
+    for member in members:
+        #stdioPrint(member)
+        if ("struct" in member and "{" in member):
+            cont = True
+
+        if (cont):
+            tempbuf.append(member)
+            if "}" in member:
+                memName = member.replace("}","").replace(";","")
+                cont = False
+                structs[tag]['mem'][memName] = parseStruct(tempbuf,memName)
+                structs[tag]['numMembers'] -= structs[tag]['mem'][memName]['numMembers'] 
+                structs[tag]['numMembers'] -= 1 # For delimiters 
+            continue
+                
+        typeName = member.split()
+        structs[tag]['mem'][typeName[-1].replace(";","")] = " ".join(typeName[:-1])
+
+    #scPrint(structs)
+    return structs[tag]
+
+
+
+def parsePrototype(proto, ocall=False):
+    global stDef
+    global debugPrint
+    global parseBuf
+    global isEnum
+    words = proto.split()
+    if ocall:
+        outputBuf = ocalls
+    else:
+        outputBuf = x
+    #scPrint(words)
+    if "struct" in words or "union" in words or "enum" in words:
+        func = False
+        for word in words:
+            if ");" in word:
+                func=True
+        if (not func):
+            if "enum" in words:
+                isEnum = True
+            stDef += 1
+
+    if (stDef > 0):
+        parseBuf.append(proto)
+    
+    if "}" in proto and ";" in proto:
+        stDef -= 1
+    if (stDef > 0):
+        debugPrint = True
+        return
+    elif (debugPrint  and stDef ==0):
+        #scPrint(parseBuf)
+        debugPrint = 0
+        #completely parsed the struct definition
+        #if isEnum:
+        #    parseEnum(parseBuf)
+        #    isEnum = False
+        #else:
+        #    parseStruct(parseBuf)
+        parseStruct(parseBuf)
+        parseBuf=[]
+        return
+
+    #this is an alias register it
+    if "typedef" in proto:
+        aliasTo = proto.split(' ')[-1].replace(";","")
+        aliasFrom = proto.split(' ')[1:-1]
+        arrSize = 0
+        if ("[" in aliasTo):
+            aliasTo, arr = aliasTo.split("[")
+            arrSize = int(arr.replace("]",""))
+        #scPrint(aliasTo)
+        aliases[aliasTo] ={}
+        aliases[aliasTo]["from"] = " ".join(aliasFrom)
+        aliases[aliasTo]["arrSize"] = arrSize
+        #scPrint(aliases)
+        return
+
+    #scPrint(proto)
+    ret, proto = proto.split(' ', 1)
+    name, proto = proto.split('(',1)
+    #scPrint(name)
+    name = name.strip()
+    outputBuf[name]={}
+    outputBuf[name]['ret'] = ret
+    stdioPrint('Func Name:' + name)
+    stdioPrint('return value:' + outputBuf[name]['ret'])
+    argsJoined,_ = proto.split(')',1)
+    print "JoinedArgs:" + argsJoined
+    # Get EDL quirks
+    edl={}
+    tempBuf = []
+    edlBuf = False 
+    nArgJ=[]
+    i=0
+    decl = []
+    targ  =0
+    while i < len(argsJoined):
+        char = argsJoined[i]
+        if char=="[":
+            if not decl:
+                edlBuf = True
+                i +=1
+                continue
+        if char=="]" and edlBuf==True:
+            edlBuf = False
+            edl[targ] = chartostr(tempBuf)
+            tempBuf=[]
+            i +=1
+            continue
+        if char=="," and edlBuf==False:
+            targ +=1
+            
+        if edlBuf:
+            tempBuf.append(char)
+        else:
+            nArgJ.append(char)
+        i +=1
+            
+
+    argsJoined = chartostr(nArgJ)
+    args = argsJoined.split(',')
+    outputBuf[name]['numargs'] = len(args)
+    i = 0;
+    outputBuf[name]['args']= {}
+    for arg in args:
+        typeName = arg.split(' ')
+        argtype,argname=typeName[:-1],typeName[-1]
+        size = argname.split('[')
+        isArr = False
+        arrSize = 0
+        if (len(size) == 2):
+            arrSize = size[-1].split(']')[0]
+            argname = size[0]
+            isArr = True
+        outputBuf[name]['args'][i] = {}
+        outputBuf[name]['args'][i]['arrSize'] = arrSize
+        idRaw = argname.split('*')
+        if len(idRaw) ==2:
+            argname=idRaw[1]
+            argtype.append("*")
+        outputBuf[name]['args'][i]['type'] = " ".join(argtype)
+        outputBuf[name]['args'][i]['id'] = argname
+        tempEDL=""
+        if i in edl:
+            tempEDL = edl[i]
+        outputBuf[name]['args'][i]['edl'] = tempEDL
+
+#        if (isArr):
+#            print 'Type:' +'Array of size' + arrSize+ 'of type'.join(argtype)
+#        else:
+#            print 'Type:' +''.join(argtype)
+        i += 1
+        #print 'Name:' + argname
+
+    #print x[name]
+
+def parseChain(chain):
+    #print chain
+    arg,chain=chain.split('->',1);
+    firstarg = arg
+#    print firstarg
+    while(True):
+        funcname,argnum = arg.split(":",1)
+        nextarg,temp = chain.split('->',1)
+        m[arg] = nextarg
+        #print "Keying for: " + funcname + " " +argnum
+        #print x[funcname]
+        x[funcname]['args'][int(argnum)]['chain'] = firstarg
+        #print x[funcname]['args'][int(argnum)]['chain']
+        #print arg +'->'+ m[arg]
+        if temp == "-|":
+            #register node here though
+            break
+        #if (argnum.isdecimal()):
+        arg,chain=chain.split('->',1);
+
+def parseBridge(bridge):
+    with open(bridge) as fp:
+       line = fp.readline()
+       while line:
+           parsePrototype(line.strip())
+           line = fp.readline()
+
+def parseModel(model):
+    with open(model) as fp:
+       line = fp.readline()
+       while line:
+           parseChain(line.strip())
+           line = fp.readline()
+
+def randomString(stringLength):
+    letters = string.ascii_letters
+    return ''.join(random.choice(letters) for i in range(stringLength))
+
+def printw(string):
+    sys.stdout.write(string)
+
+
+def make_unicode(input):
+    if type(input) != unicode:
+        input =  input.decode('utf-8')
+    return input
+
+def writeFunction(func, carg=[], cid="", retmap= {}, genRetVal=False):
+    #print carg
+    id=[]
+    arr=""
+    ret_val = ""
+    #print cid
+    for arg in x[func]['args']:
+        #See if this arg is in chain 
+        if(str(arg) in carg):
+            if (cid !=""):
+                id.append(cid)
+                continue
+
+        #See if arg is from another call's return 
+        if(retmap.has_key(str(arg))):
+            id.append(retmap[str(arg)])
+            continue
+
+        ast = x[func]['args'][arg]
+        if (ast['type'] == 'sgx_enclave_id_t'):
+            id.append( 'global_eid')
+            continue
+        id.append(randomString(10) + "_" + str(arg))
+        #scPrint(ast['arrSize'])
+        if ast['arrSize'] != 0:
+            arr="[" + str(ast['arrSize']) + "]"
+        else:
+            arr=""
+        print (ast['type'] + " " + id[arg] + arr + ";")
+        if(str(arg) in carg):
+            #print "Here"
+            #See if this was the first time we wrote the chained variable
+            cid = id[arg]
+    if genRetVal:
+        ret_val = randomString(10)
+        print (x[func]['ret'] + " " +ret_val + ";")
+    else:
+        ret_val = "ret"
+
+    printw (ret_val + " = ")
+    
+    printw (func + "(")
+    printw (', '.join(map(str, id)))
+    print(");")
+    return cid,ret_val
+
+def scPrint(obj):
+    #sys.stdout= sys.__stdout__
+    sys.stdout = current
+    print (obj)
+    current.flush()
+    sys.stdout= mystdout
+
+
+def stdioPrint(obj):
+    return
+    old = sys.stdout 
+    sys.stdout= sys.__stdout__
+    print (obj)
+    sys.stdout= old
+
+def fuzz(snip, func):
+    global x
+    global seedTestcase
+    global doSymExec
+    typeName = snip.split(" ")
+    type, id = typeName[:-1],typeName[-1]
+    size = id.split('[');
+    isArr = False
+    arrSize = 0
+    if (len(size) == 2):
+        arrSize = size[-1].split(']')[0]
+        id = size[0]
+        isArr = True
+    type = " ".join(type)
+    #scPrint("Will fuzz "+ id + "for type " + type + " and array of size" + str(arrSize))
+
+    #we fuzz based on the type
+    type = type.strip()
+    qualifier = ""
+    if ("const " in type):
+        qualifier = type.split("const ",1)[0]
+        qualifier = qualifier + " const "
+        type = type.split("const ",1)[1]
+    id = id.replace(";","")
+    sign = ["","-"]
+    delim=["","",""]
+    if (arrSize != 0):
+        delim=["{","}","["+arrSize+"]"]
+    else:
+        arrSize=1 #Scalar Case
+    val = []
+    #let's take advantage of C weak type systems, all bigger values will be truncated
+    # based on the memory bin
+    intalias=["int","size_t", "char", "wchar_t","short","long", "uint32_t", "uint64_t", "const char", "sgx_status_t", "uint8_t"]
+    ptr=["int *", "int*", "float *", "float*", "size_t*", "size_t *", "void *", "void*"]
+    astType = type.split()
+    needLog = True
+    #stdioPrint(type)
+    if(type in intalias):
+        # generate a random int
+        needLog = False
+        scPrint(snip);
+        ast = snip.split(" ")
+        tid = ast[-1].replace(";","")
+        #embed()
+        stdioPrint(tid.split("_")[-1])
+        stdioPrint(snip)
+        stdioPrint(func)
+
+        #TODO:See if this is a char Array, if yes fill it with random bytes
+        index = tid.split("_")[-1]
+        if not index.isdigit():
+            index = index.replace("]","")
+            l,size = index.split("[")
+            tid = tid.split("[")[0]
+            scPrint("temp = (char *)&" + tid + ";")
+            scPrint("fgets(temp,"+ size+ ", stdin);")
+            for baracuda in range(int(size)):
+                seedTestcase.write(struct.pack('B',0))
+            return ""
+        l = int(tid.split("_")[-1])
+        snip = ""
+        #embed()
+        if (len(tid.split("_")) ==2 and ("solns" in x[func])):
+            scPrint("temp = (char *)&" + tid + ";")
+            argn = int(tid.split("_")[-1])
+            solns = len(x[func]["args"][argn]) - 4  # type, arrSize and identifier TODO: CHange with field change in x 
+            if solns != 0:
+                if solns ==1:
+                    pick = 0
+                else:
+                    pick = randrange(solns -1)
+                BA = x[func]["args"][argn][str(pick)]
+                idx =0
+                scPrint("fgets(temp,"+ str(len(x[func]["args"][argn][str(pick)]))+ ", stdin);")
+                BA = x[func]["args"][argn][str(pick)]
+                for byte in BA:
+                        if doSymExec:
+                            seedTestcase.write(struct.pack('B',byte))
+                        else:
+                            seedTestcase.write(struct.pack('B',0))
+    elif("*" in type):
+        #scPrint(type)
+        pointsto = type.replace("*", "")
+        suffix = ""
+        if (len(id.split("_")) == 2):
+            #This is an argument
+            suffix = "_" + id.split("_")[-1]
+        tempid = randomString(10) + suffix 
+        tempsnip = pointsto + " " + tempid + ";"
+        if ("void" in type):
+            tempsnip = "char " + tempid + "[" + str(random.randint(0,2048)) + "];"
+        scPrint(fuzz(tempsnip, func))
+        delim[0] = "&"
+        sign[1] = ""#unsigned case
+        #val.append(tempid)
+        if (decision(0.2)):
+            delim[0] = "NULL"
+            tempid = ""
+        val.append(tempid)
+    elif(type == "float" or type == "double"):
+        for idx in range(int(arrSize)):
+            val.append(str(random.uniform(0, 3.4E+38)))
+    #elif (type == "char *" or type == "char*" or type=="const char*" or type=="const char *"):
+    #    for idx in range(int(arrSize)):
+    #        length = random.randint(0, 16384);
+    #        val.append("\"" + randomString(length) +"\"")
+    elif (type in structs):
+        rsnip =[snip] 
+        #TODO: Enums could fail if we don't start from zero
+        if ("enum" in type):
+            snip = type + " " + id + " = " + str(random.randint(0,structs[type]["numMembers"])) + ";"
+        else:
+            snip = snip
+            scPrint(snip)
+            ast = snip.split(" ")
+            scPrint("memset(&" + ast[1] +",0,sizeof("+ ast[0]+ "));")
+            snip = ""
+        needLog = False
+    elif (type in aliases):
+        #stdioPrint("Here")
+        rsnip =[snip]
+        #TODO: Enums could fail if we don't start from zero
+        if ("enum" in type):
+            snip = type + " " + id + " = " + str(random.randint(0,aliases[type]["numMembers"])) + ";"
+        else:
+            scPrint(snip)
+            ast = snip.split(" ")
+            tid = ast[1].replace(";","")
+            l = int(tid.split("_")[-1])
+            #embed()
+            if (len(tid.split("_")) ==2 and ("solns" in x[func])):
+                scPrint("temp = (char *)&" + tid + ";")
+                argn = int(tid.split("_")[-1])
+                solns = x[func]["solns"]
+                if solns ==1:
+                    pick = 0
+                else:
+                    pick = randrange(solns -1)
+                #embed()
+                BA = x[func]["args"][argn][str(pick)]
+                idx =0
+
+                scPrint("fgets(temp,"+ str(len(x[func]["args"][argn][str(pick)]))+ ", stdin);")
+                for byte in BA:
+                    if doSymExec:
+                        seedTestcase.write(struct.pack('B',byte))
+                    else:
+                        seedTestcase.write(struct.pack('B',0))
+                    idx+=1
+            else:
+                scPrint("memset(&" + ast[1].replace(";","") +",0,sizeof("+ ast[0]+ "));")
+            snip = ""
+        needLog = False
+    else:
+        #We don't populate built-in types
+        stdioPrint(type + "didn't match anything")
+        if (len(id.split("_")) ==2 and ("solns" in x[func])):
+                scPrint(snip)
+                snip =""
+                scPrint("temp = (char *)&" + id + ";")
+                argn = int(id.split("_")[-1])
+                solns = x[func]["solns"]
+                #embed()
+                stdioPrint(func)
+                stdioPrint(solns)
+                # See if we have more than 4 feilds TODO: Modify everytime you update the AST ADT
+                solns = len(x[func]["args"][argn]) - 4
+                if solns != 0:
+                    if solns ==1:
+                        #embed()
+                        pick = 0
+                    else:
+                        pick = randrange(solns -1)
+                    #embed()
+                    #See if this is a return value
+                    #embe()
+                    stdioPrint(x[func]["args"][argn])
+                    BA = x[func]["args"][argn][str(pick)]
+                    idx =0
+                    scPrint("fgets(temp,"+ str(len(BA))+ ", stdin);")
+                    for byte in BA:
+                        if doSymExec:
+                            seedTestcase.write(struct.pack('B',byte))
+                        else:
+                            seedTestcase.write(struct.pack('B',0))
+                        idx+=1
+
+        else:
+            snip = type + " " + id + delim[2] + ";"
+        needLog = False
+
+    if needLog:
+        snip = qualifier + type + " " + id + delim[2] +" = " + delim[0] + sign[random.randint(0,1)] + ", ".join(val) + delim[1] +";"
+
+
+
+
+    
+    #scPrint(snip)
+    return snip
+
+clu={}
+# Python function to print permutations of a given list
+def permutation(lst):
+    # If lst is empty then there are no permutations
+    if len(lst) == 0:
+        return []
+    # If there is only one element in lst then, only
+    # one permuatation is possible
+    if len(lst) == 1:
+        return [lst]
+    # Find the permutations for lst if there are
+    # more than 1 characters
+    l = [] # empty list that will store current permutation
+    # Iterate the input(lst) and calculate the permutation
+    for i in range(len(lst)):
+       m = lst[i]
+       # Extract lst[i] or m from the list.  remLst is
+       # remaining list
+       remLst = lst[:i] + lst[i+1:]
+       # Generating all permutations where m is first
+       # element
+       for p in permutation(remLst):
+           l.append([m] + p)
+    return l
+
+def parseCluster(clfile):
+    with open(clfile) as fp:
+        line = fp.readline()
+        while line:
+            gstate,cluster = line.split(":")
+            cluster = cluster.strip()
+            cluster = cluster[:-1]
+            cluster = cluster.split(",")
+            for node in cluster:
+                node = node.strip()
+            clu[gstate] = permutation(cluster)
+            line = fp.readline()
+
+
+def writeFunctionWrapper(func):
+   global mystdout
+   global funcWritten
+   inChain = False;
+   #TODO: What if different arguments are in different chains?
+   #print func
+   #print x
+   #If there's a chain cid, holds the identifier for the chained variable
+   #it is automotically create by writeFunction for us with correct
+   #type
+
+   cid = ""
+   stdioPrint(funcWritten)
+   funcWritten +=1
+   if funcWritten ==1:
+        scPrint("char * temp = NULL;")
+   for arg in x[func]['args']:
+        if(x[func]['args'][arg].has_key('chain')):
+            #print func
+            #print arg
+            #print m[x[func]['args'][arg]['chain']]
+            print (cid)
+            node = x[func]['args'][arg]['chain']
+            exhausted = False
+            while(m.has_key(node)):
+                retmap={}
+                #This check deals with nested calls in parameters
+                if(not make_unicode(node.split(":",1)[1]).isnumeric()):
+                    func, arg, nfunc, narg = node.split(":")
+                    #print "Nested call for" + nfunc
+                    cid,ret_val = writeFunction(nfunc,narg,cid,retmap,True)
+                    retmap[arg] = ret_val
+                carg = [node.split(":",1)[1]]
+                name = node.split(":",1)[0]
+                #Exhaust all the nodes in this call
+                while (m.has_key(node) and m[node].split(":",1)[0] == name):
+                    node = m[node]
+                    #if nested call save the return value
+                    if(not make_unicode(node.split(":",1)[1]).isnumeric()):
+                       func,arg,nfunc,narg = node.split(":")
+                       cid, ret_val =  writeFunction(nfunc,narg,cid,retmap,True)
+                       retmap[arg] = ret_val
+                    carg.append(node.split(":",1)[1])
+
+                #populate pre-gen vars
+                cid,_ = writeFunction(node.split(":",1)[0],carg,cid,retmap,False)
+                #from IPython import embed; embed()
+                if(m.has_key(node)):
+                    node = m[node]
+                else:
+                    exhausted = True;
+                    break
+            if not exhausted:
+                if(not make_unicode(node.split(":",1)[1]).isnumeric()):
+                    func,arg,nfunc,narg = node.split(":")
+                    #print "Nested call for" + nfunc
+                    cid, ret_val =  writeFunction(nfunc,narg,cid,retmap,True)
+                    retmap[arg] = ret_val
+                    cid,_ = writeFunction(nfunc,narg,cid)
+                carg = [node.split(":",1)[1]]
+                writeFunction(node.split(":")[0],carg,cid,retmap,False)
+            inChain = True
+   if(inChain == False):
+       writeFunction(func)
+
+   unfuzzSnippet.append(mystdout.getvalue())
+   #scPrint(unfuzzSnippet)
+   unfuzzSnippetl = mystdout.getvalue().split("\n")
+   for snip in unfuzzSnippetl:
+       if snip and not "(" in snip:
+           snip = fuzz(snip, func)
+       scPrint(snip)
+   mystdout = StringIO()
+   sys.stdout= mystdout
+
+
+def parseEDL(rawDat):
+    last_edl = ""
+    with open(rawDat) as fp:
+        line = fp.readline()
+        while line:
+            #stdioPrint(line)
+            line = line.strip()
+            if ("EDL:" in line):
+                edl = line.replace("EDL:","")
+                #stdioPrint(edl)
+                last_edl = edl
+                if (not ec.has_key(last_edl)):
+                    ec[edl]= set()
+            else:
+                #stdioPrint(line)
+                #embed()
+                ec[last_edl].add(line)
+            line = fp.readline()
+
+def chartostr(arr):
+    j = ""
+    return j.join(arr)
+
+def getBlock(line, fp, lim="{", delim="}"):
+    ret = []
+    buff = []
+    ident = -1
+    while line:
+        i = 0
+        while i <len(line):
+            if lim == line[i]:
+                if ident==-1:
+                    ident = 1
+                    i = i + 1
+                    continue
+                else:
+                    ident = ident +1
+            if delim == line[i]:
+                ident = ident -1
+            if ident==0:
+                return chartostr(buff)
+            if ident > 0:
+                buff.append(line[i])
+            i = i+1
+        line = fp.readline() 
+        ret.append(line)
+
+    j = ""
+    if buff:
+        buff.pop(0)
+    return j.join(buff)
+# Takes in a raw string buffer and removes the comments from the buffer
+def removeComments(buf):
+    gate = False
+    nbuf = []
+    i =0 
+    while i < len(buf):
+        if buf[i] == "/" and buf[i+1] =="*":
+            gate = True
+        if buf[i] == "*" and buf[i+1] =="/":
+            gate = False
+            i = i+2
+            continue 
+        if gate == False:
+            nbuf.append(buf[i])
+        i = i+1
+    
+    return chartostr(nbuf)
+
+    
+def parseRealEDL(rawDat):
+    global ocalls
+    with open(rawDat) as fp:
+        line = fp.readline()
+        while line:
+            line = line.strip()
+            if ("untrusted" in line):
+                # We should get the entire block of untrsuted 
+                block = getBlock(line, fp)
+                # We should have only protypes now separated by newlines
+                proto = removeComments(block)
+                proto = proto.splitlines()
+                for line in proto:
+                    if line.isspace():
+                        continue 
+                    parsePrototype(line.strip(), True)
+            line = fp.readline()
+            print ocalls
+            print x
+    #quit()
+
+
+
+
+def writeClusters():
+    for gstate in clu:
+        i = 0
+        for perm in clu[gstate]:
+            filename = "./" + gstate + str(i)
+            current = open("./" + gstate + str(i), "w")
+            for func in perm:
+                writeFunctionWrapper(func)
+                current.flush()
+            if (subprocess.call(["timeout", "1s", "./runperm.sh", filename, testcaseDir]) == 0):
+                clu[gstate][i].insert(0,"GOOD")
+            else:
+                clu[gstate][i].insert(0,"BAD")
+            i+=1
+
+
+currPool = set()
+def decision(probability):
+    return random.random() < probability
+lastAdded = ""
+totalRunsSinceMe = 0
+totalScoreSinceMe = 0
+
+#OK After feedback it should really be adjust pool, because sometimes we don't increase
+# the pool size, we just take out a badd API once in a while
+def increasePool():
+    global validElem
+    global totalScoreSinceMe
+    global totalRunsSinceMe
+    global targetFuncs
+    edls = len(validElem)
+    if (decision(0.9)):
+        edl = random.randint(0, edls- 1)
+        targetFuncs = targetFuncs | ec[validElem[edl]]
+    global lastAdded
+    targetSize = len(targetFuncs)
+    averageScoreSinceMe = totalScoreSinceMe/totalRunsSinceMe
+    if (averageScoreSinceMe < baselineScore and lastAdded):
+        #Get this testcase outta here
+        currPool.remove(lastAdded)
+    lastAdded = list(targetFuncs)[random.randint(0, targetSize - 1)]
+    currPool.add(lastAdded)
+
+baselineScore = 0
+
+def getScore():
+    global testcaseDir
+    global totalExecs
+    fname = testcaseDir + "/out/fuzz_trace_best"
+    stat = testcaseDir + "/out/fuzzer_stats"
+    virginBitsInv = testcaseDir + "/out/blockcoverage"
+    numBlocks = 0
+    numSet = 0
+    blockHit = 0
+    if(os.path.isfile(fname)):
+        with open(fname) as f:
+            for chunk in iter(lambda: f.read(4), b''):
+                #print chunk
+                if (len(chunk) != 4):
+                    break
+                num = struct.unpack('i', chunk)[0]
+                for byte in range(3):
+                    if (((num >> (byte * 8)) & 0xFF) > 0):
+                        blockHit += 1
+                numBlocks += 4
+
+        with open(stat) as f:
+            for line in f:
+                line = line.rstrip()  # remove '\n' at end of line
+                if "execs_done" in line:
+                    totalExecs += int(line.split(":")[-1])
+
+
+        with open(virginBitsInv) as f:
+            for line in f:
+                line = line.rstrip()
+                blockHit = int(line.split(":")[-1])
+
+        return blockHit
+    else:
+        stdioPrint("The testcase failed")
+        return 0
+
+def mainLoop():
+    global current
+    global startTime
+    global currPool
+    global baselineScore
+    global bestIndex
+    global bestScore
+    global totalScoreSinceMe
+    global totalRunsSinceMe
+    global funcWritten
+    global caseIndex
+    global mainLoopStart
+    global testcaseDir
+    global seedTestcase
+    mainLoopStart = time.time()
+    currPool = set()
+    targetSize = len(targetFuncs)
+    caseIndex = 0
+    weGood = False
+    for func in targetFuncs:
+        filename = "baseline"
+        testcaseDir = "./work/" + filename
+        seedFile = "./work/" + filename + "/in/1"
+        filename = "./work/" + filename +"/" +filename
+        funcWritten = 0
+        subprocess.call(["timeout", "10s", "./setupHarness.sh", testcaseDir])
+        current = open(filename, 'w+')
+        seedTestcase = open(seedFile, 'wb+')
+        writeFunctionWrapper(func)
+        scPrint(check)
+        seedTestcase.write(struct.pack('B',0))
+        current.flush()
+        seedTestcase.flush()
+        subprocess.call(["timeout", "40s", "./runperm.sh", filename, testcaseDir])
+        fname = "./work/baseline/out/fuzz_trace_best"
+        if(os.path.isfile(fname)):
+            currPool.add(func)
+            weGood = True
+            baselineScore = getScore()
+            break
+        subprocess.call(["sh", "./cleanup.sh"])
+ 
+    if weGood:
+        while True:
+            #while True:
+            #stdioPrint(currPool)
+            currPermutation = list(currPool)
+            shuffle(currPermutation)
+            #stdioPrint(currPermutation)
+            filename = "testcase"+ str(caseIndex)
+            testcaseDir = "./work/" + filename
+            seedFile = "./work/" + filename + "/in/1"
+            filename = "./work/" + filename +"/" +filename
+            subprocess.call(["timeout", "10s", "./setupHarness.sh", testcaseDir])
+            funcWritten =0
+            current = open(filename, 'w+')
+            seedTestcase = open(seedFile, 'wb+')
+            for func in currPermutation:
+                writeFunctionWrapper(func)
+                scPrint(check)
+                current.flush()
+                seedTestcase.flush()
+            seedTestcase.write(struct.pack('B',0))
+            seedTestcase.flush()
+            subprocess.call(["timeout", "40s", "./runperm.sh", filename, testcaseDir])
+            currentScore = getScore()
+            if (currentScore == 0):
+                results.write(filename + " might've crashed or hanged \n")
+            stdioPrint(currentScore)
+            subprocess.call(["sh", "./cleanup.sh"])
+
+            #Bookeeping
+            totalScoreSinceMe += currentScore
+            totalRunsSinceMe += 1
+            if (currentScore > bestScore):
+                bestScore = currentScore
+                bestIndex = caseIndex
+                results.write(str(time.time()- startTime)+": " + str(bestScore) + "\n")
+            caseIndex += 1
+            #Probabilty to increase the pool size
+            if (decision(0.9)):
+                increasePool()
+validElem = []
+
+from collections import namedtuple
+srcinfo = namedtuple("srcinfo", "file line")
+
+ocallsrc = {}
+ocallsrcOrig = {}
+
+def updateSourceInfo():
+    # Index source database SYMBOL DATABASE FORMAT
+    for ocall in ocalls: 
+        subprocess.call(["/home/arslan/prep_cscope.sh"])
+        subprocess.call(["timeout", "25s", "./getFile.sh", ocall])
+        with open("./fileInfo") as f:
+            for line in f:
+                line = line.rstrip()  # remove '\n' at end of line
+                if ocall in line:
+                    tokens = line.split(" ")
+                    ocallsrc[ocall]=srcinfo(tokens[0], tokens[2])
+                    subprocess.call(["timeout", "25s", "./getFilePath.sh", ocallsrc[ocall].file])
+                    with open("./filePath") as fp:
+                        for line in fp:
+                            ocallsrc[ocall]=srcinfo(line.strip(), ocallsrc[ocall].line)
+
+    
+def fuzzOcall(ocall):
+    block = []
+    block.append("char* temp;")
+    for arg in ocalls[ocall]["args"]:
+        if "out" in ocalls[ocall]["args"][arg]["edl"]:
+            size = getSize(ocalls[ocall]["args"][arg]["type"])
+            block.append("temp = (char *)&" + ocalls[ocall]["args"][arg]["id"] + ";")
+            if "string" in ocalls[ocall]["args"][arg]["edl"]:
+                block.append("fgets(temp, strlen("+ ocalls[ocall]["args"][arg]["id"] +"), stdin);")
+            elif "size"  in ocalls[ocall]["args"][arg]["edl"]:
+                toks =ocalls[ocall]["args"][arg]["edl"].split(",")
+                for tok in toks:
+                    if "size" in tok:
+                        size = tok.split("=")[-1]
+                block.append("fgets(temp, "+ size+", stdin);")
+            else:
+                block.append("fgets(temp,"+ size+ ", stdin);")
+
+    if ocalls[ocall]["ret"] != "void":
+        block.append(ocalls[ocall]["ret"] + " ret_val;")
+        block.append("temp = (char *)& ret_val;"); 
+        block.append("fgets(temp,"+ getSize(ocalls[ocall]["ret"])+ ", stdin);")
+        block.append("return ret_val;")
+    block.append("}")
+
+    return "\n".join(block)
+
+
+ 
+mutatedOcalls = {}
+ocallFileStash = {}
+DEBUG=True
+def cleanup():
+    global DEBUG
+    if ocallFileStash:
+        for file in ocallFileStash:
+            if DEBUG:
+                subprocess.call(["cp", ocallFileStash[file], "./.debugdir/"+ "orig_"+file.replace("/","")])
+            subprocess.call(["mv", ocallFileStash[file], file])
+            subprocess.call(["rm", "-rf", "./.stash/"])
+    #if DEBUG:
+    #    subprocess.call(["rm", "-rf", "./.debugdir/"])
+
+
+def mutateOcalls():
+    for ocall in ocalls:
+        updateSourceInfo()
+        linenum = 1
+        with open(ocallsrc[ocall].file) as f: 
+            line = f.readline()
+            while line:
+                if linenum == int(ocallsrc[ocall].line):
+                    #embed()
+                    block = []
+                    lineT = line
+                    fp = f
+                    args = getBlock(lineT,fp,"(", ")")
+                    argsp = args.split(",")
+                    i =0
+                    for arg in argsp:
+                        tokens = arg.split(" ")
+                        if tokens[-1][0]=="*":
+                            tokens[-1] = tokens[-1][1:]
+                        if ocalls[ocall]["args"][i]["id"] != tokens[-1]:
+                            stdioPrint(ocalls[ocall]["args"][i]["id"] + "->"+tokens[-1])
+                            #Update all args
+                            for argit in ocalls[ocall]["args"]:
+                                if ocalls[ocall]["args"][i]["id"] in ocalls[ocall]["args"][argit]["edl"]:
+                                    ocalls[ocall]["args"][argit]["edl"] = ocalls[ocall]["args"][argit]["edl"].replace(ocalls[ocall]["args"][i]["id"], tokens[-1])
+                            ocalls[ocall]["args"][i]["id"] = tokens[-1]
+                        i = i+1
+                    block = getBlock(line,f)
+                    block = removeComments(block)
+                    break
+                linenum +=1
+                line = f.readline()
+        mutatedOcalls[ocall] = fuzzOcall(ocall)
+
+            
+    for ocall in ocalls:
+        stdioPrint(mutatedOcalls[ocall])
+
+    path = "./.stash/"
+    os.mkdir(path)
+    #Replace the file
+    for ocall in ocalls:
+        orig = ocallsrc[ocall].file
+        nname = orig.replace("/","")
+        stdioPrint(ocallsrc[ocall].file +" to "+ path+nname)
+        if ocallsrc[ocall].file not in ocallFileStash:
+            subprocess.call(["cp", ocallsrc[ocall].file, path+nname])
+            ocallFileStash[ocallsrc[ocall].file] = path+nname
+
+
+    #Now we can mutate in-place
+    if DEBUG:
+        dd = "./.debugdir/"
+        os.mkdir(dd)
+    for ocall in ocalls:
+        updateSourceInfo()
+        linenum = 1
+        updatedFile = []
+        with open(ocallsrc[ocall].file) as f:
+            line = f.readline()
+            updatedFile.append(line)
+            while line:
+                linenum +=1
+                line = f.readline()
+                if linenum == int(ocallsrc[ocall].line):
+                    #Prototype could be multi-line 
+                    while "{" not in line:
+                        updatedFile.append(line)
+                        line = f.readline()
+                    updatedFile.append(line)
+                    block = getBlock(line,f)
+                    stdioPrint(ocall)
+                    updatedFile.append(mutatedOcalls[ocall])
+                    #embed()
+                else:
+                    updatedFile.append(line)
+            f.close()
+        with open(ocallsrc[ocall].file, "w") as f:
+            f.write("".join(updatedFile))
+            f.close()
+        if DEBUG:
+            subprocess.call(["cp", ocallsrc[ocall].file, dd+ocall+".c"]) 
+
+
+
+
+    if DEBUG:
+        for ocall in ocalls:
+            subprocess.call(["cp", ocallsrc[ocall].file, dd+ocallsrc[ocall].file.replace("/","")])
+
+
+
+def inferModel():
+    global current
+    global startTime
+    global currPool
+    global baselineScore
+    global bestIndex
+    global bestScore
+    global totalScoreSinceMe
+    global totalRunsSinceMe
+    global funcWritten
+    global caseIndex
+    global mainLoopStart
+    global testcaseDir
+    global seedTestcase
+    global targetFuncs
+    global validElem
+    global numFuncs
+    stdioPrint("Starting Infer Model")
+    for elem in (list(ec)):
+        if (len(ec[elem])):
+            validElem.insert(0,elem)
+
+    edls = len(validElem)
+
+    #Mutate OCALLs inplace, since they don't have order relationships
+    mutateOcalls()
+
+
+    if (numFuncs > 25):
+        while True:
+            edl = random.randint(0, edls- 1)
+            stdioPrint(validElem[edl])
+            targetFuncs = ec[validElem[edl]]
+            mainLoop()
+    else:
+        #Write all the permuatations, less than 4 we have 24 permutations
+        caseIndex = 0
+        edl = 0
+        while edl < edls:
+            #embed()
+            #perms = permutation(list(ec[validElem[edl]]))
+            perms = []
+            perms.append(list(list(ec[validElem[edl]])))
+            #embed()
+            proc = []
+            #stdioPrint(currPermutation)
+            for currPermutation in perms:
+                if (caseIndex > 2):
+                    break
+                filename = "testcase"+ str(caseIndex)
+                testcaseDir = "./work/" + filename
+                seedFile = "./work/" + filename + "/in/1"
+                filename = "./work/" + filename +"/" +filename
+                subprocess.call(["./setupHarness.sh", testcaseDir])
+                funcWritten =0
+                current = open(filename, 'w+')
+                seedTestcase = open(seedFile, 'wb+')
+                for func in currPermutation:
+                    writeFunctionWrapper(func)
+                    scPrint(check)
+                    current.flush()
+                    seedTestcase.flush()
+                seedTestcase.write(struct.pack('B',0))
+                seedTestcase.flush()
+                subprocess.call(["./setupHarnessPost.sh", filename, testcaseDir])
+                proc.append(Popen(["./runperm.sh", filename, testcaseDir]))
+                caseIndex += 1
+            edl += 1
+
+        stdioPrint("Going to the loop")
+        while True:
+            i =0
+
+
+        
+     
+
+    stdioPrint(targetFuncs)
+
+def parseRet(ret):
+      with open(ret) as fp:
+         line = fp.readline()
+         while line:
+             funcWithRet.append(line.replace("\n", ""))
+             line = fp.readline()
+
+
+
+ips=[]
+edgesB = []
+def _symExec(csm):
+    stepCount = 100
+    while len(csm.active) > 0 and stepCount >0:
+        #stdioPrint(csm)
+        csm.step()
+        #for s in csm.active:
+        #    prev_addr =0
+        #    for addr in s.history.bbl_addrs:
+        #        edge = str(prev_addr) +"-" + str(addr)
+        #        if edge not in edgesB:
+        #            edgesB.append(edge)
+        #        prev_addr = addr
+        #    if s.regs.ip.__repr__() not in ips:
+        #        ips.append(s.regs.ip.__repr__())
+        stepCount -= 1
+
+def getSize(type):
+    type = type.strip()
+    if type not in sizeMap:
+        filename = "./temp"
+        current = open(filename, 'w+')
+        typeFiltered = type.replace("*","")
+        scPrint("printf(\"SGXFUZZLOGS:%d\\n\", sizeof("+ typeFiltered+")); \n")
+        subprocess.call(["timeout", "25s", "./getSize.sh"])
+        fname = "./log"
+
+        if(os.path.isfile(fname)):
+            with open(fname) as fp:
+                line = fp.readline()
+                while line:
+                    if "SGXFUZZLOGS" in line:
+                        size = line.replace("SGXFUZZLOGS:", "")
+                        size = size.replace("\n", "")
+                        break
+                    line = fp.readline()
+        else:
+            stdioPrint("Could not file FATAL failure")
+        stdioPrint('val' + str(idc) + size)
+        sizeMap[type] = size
+
+    return sizeMap[type] 
+idc =0
+def argToBV(arg):
+    global idc
+    global current
+    stdioPrint(arg)
+    val = claripy.BVS('val' + str(idc), 32)
+    type = arg['type']
+    if type in sizeMap:
+        size = sizeMap[type]
+        val = claripy.BVS('val' + str(idc), int(size) * 8)
+    else:
+        filename = "./temp"
+        current = open(filename, 'w+')
+        typeFiltered = type.replace("*","")
+        scPrint("printf(\"SGXFUZZLOGS:%d\\n\", sizeof("+ typeFiltered+")); \n")
+        subprocess.call(["timeout", "25s", "./getSize.sh"])
+        fname = "./log"
+        if(os.path.isfile(fname)):
+            with open(fname) as fp:
+                line = fp.readline()
+                while line:
+                    if "SGXFUZZLOGS" in line:
+                        size = line.replace("SGXFUZZLOGS:", "")
+                        break
+                    line = fp.readline()
+        else:
+            stdioPrint("Could not file FATAL failure")
+        stdioPrint('val' + str(idc) + size)
+        sizeMap[type] = size
+        val = claripy.BVS('val' + str(idc), int(size) * 8)
+    if '*' in type:
+        val = angr.PointerWrapper(val)
+        stdioPrint("Wrapped")
+    idc +=1
+    return val
+
+def getBV(arg):
+    if not type(arg) == claripy.ast.bv.BV:
+        arg = arg.value
+    return arg
+
+def getSolns(arg, csm, func, skipArg):
+    x[func]['solns'] = len(csm.deadended)
+    path = 0
+    for deadended in csm.deadended:
+        arg = getBV(arg)
+        byte =0
+        spath = str(path)
+        x[func]['args'][0 + skipArg][spath] = []
+        for chunk in arg.chop(8):
+            x[func]['args'][0 + skipArg][spath].append(deadended.solver.eval(chunk))
+            stdioPrint(x[func]['args'][0 + skipArg][spath][byte])
+            byte +=1
+        path += 1
+    if x[func]['solns'] == 0:
+        #IF we aren't able to find anything just memset args
+        x[func]['solns'] = 1
+        arg = getBV(arg)
+        byte =0
+        spath = str(path)
+        x[func]['args'][0 + skipArg][spath] = []
+        for chunk in arg.chop(8):
+            x[func]['args'][0 + skipArg][spath].append(0)
+            stdioPrint(x[func]['args'][0 + skipArg][spath][byte])
+            byte +=1
+        path += 1
+
+
+def symExec(enclave):
+    stdioPrint("enclave" + enclave)
+    proj = angr.Project(enclave)
+    state = proj.factory.entry_state()
+    one = state.solver.BVV(1, 64)
+    one1 = state.solver.BVV(1, 64)
+    stdioPrint(one1.__dict__)
+    if one.__repr__() == one1.__repr__():
+        stdioPrint("They are same")
+    sm = proj.factory.simulation_manager(state)
+    sm = proj.factory.simulation_manager(state)
+    addr= proj.loader.find_symbol("sgx_is_within_enclave").relative_addr + proj.loader.min_addr
+    proj.hook(addr, sgx_is_within_enclave())
+    proj.hook_symbol("abort", abort())
+    proj.hook_symbol("sgx_lfence", sgx_lfence())
+    proj.hook_symbol("sgx_is_outside_enclave", sgx_is_outside_enclave())
+    proj.hook_symbol("printf", printf())
+    proj.hook_symbol("sgx_ocall", sgx_ocall())
+    cfg = proj.analyses.CFGFast()
+    cfg.normalize()
+    for func in x:
+        addr= cfg.kb.functions[func].addr
+        stdioPrint(addr)
+        stdioPrint(func)
+        nargs = x[func]['numargs']
+        skipArg = 1
+        if func in funcWithRet:
+            skipArg +=1
+        stdioPrint(x[func]['numargs'] - skipArg)
+        nargs -= skipArg
+        if nargs == 0:
+            cs = proj.factory.call_state(addr)
+            csm = proj.factory.simgr(cs,veritesting=False)
+            _symExec(csm)
+        elif nargs == 1:
+            arg0 = argToBV(x[func]['args'][0 + skipArg])
+            cs = proj.factory.call_state(addr, arg0)
+            csm = proj.factory.simgr(cs,veritesting=False)
+            _symExec(csm)
+            getSolns(arg0, csm, func, 0+skipArg)
+
+        elif nargs == 2:
+            arg0 = argToBV(x[func]['args'][0 + skipArg])
+            arg1 = argToBV(x[func]['args'][1 + skipArg])
+            cs = proj.factory.call_state(addr, arg0, arg1)
+            csm = proj.factory.simgr(cs,veritesting=False)
+            _symExec(csm)
+            getSolns(arg0, csm, func, 0+skipArg)
+            getSolns(arg1, csm, func, 1+skipArg)
+            #embed()
+
+        elif nargs == 3:
+            arg0 = argToBV(x[func]['args'][0 + skipArg])
+            arg1 = argToBV(x[func]['args'][1 + skipArg])
+            arg2 = argToBV(x[func]['args'][2 + skipArg])
+            cs = proj.factory.call_state(addr, arg0, arg1, arg2)
+            csm = proj.factory.simgr(cs,veritesting=False)
+            _symExec(csm)
+            getSolns(arg0, csm, func, 0+skipArg)
+            getSolns(arg1, csm, func, 1+skipArg)
+            getSolns(arg2, csm, func, 2+skipArg)
+
+        elif nargs == 4:
+            arg0 = argToBV(x[func]['args'][0 + skipArg])
+            arg1 = argToBV(x[func]['args'][1 + skipArg])
+            arg2 = argToBV(x[func]['args'][2 + skipArg])
+            arg3 = argToBV(x[func]['args'][3 + skipArg])
+            cs = proj.factory.call_state(addr, arg0, arg1, arg2)
+            csm = proj.factory.simgr(cs,veritesting=False)
+            _symExec(csm)
+            getSolns(arg0, csm, func, 0+ skipArg)
+            getSolns(arg1, csm, func, 1+skipArg)
+            getSolns(arg2, csm, func, 2+skipArg)
+            getSolns(arg3, csm, func, 3+skipArg)
+
+        elif nargs == 5:
+            arg0 = argToBV(x[func]['args'][0 + skipArg])
+            arg1 = argToBV(x[func]['args'][1 + skipArg])
+            arg2 = argToBV(x[func]['args'][2 + skipArg])
+            arg3 = argToBV(x[func]['args'][3 + skipArg])
+            arg4 = argToBV(x[func]['args'][4 + skipArg])
+            cs = proj.factory.call_state(addr, arg0, arg1, arg2)
+            csm = proj.factory.simgr(cs,veritesting=False)
+            _symExec(csm)
+            getSolns(arg0, csm, func, 0+skipArg)
+            getSolns(arg1, csm, func, 1+skipArg)
+            getSolns(arg2, csm, func, 2+skipArg)
+            getSolns(arg3, csm, func, 3+skipArg)
+            getSolns(arg4, csm, func, 4+skipArg)
+        elif nargs==6:
+            arg0 = argToBV(x[func]['args'][0 + skipArg])
+            arg1 = argToBV(x[func]['args'][1 + skipArg])
+            arg2 = argToBV(x[func]['args'][2 + skipArg])
+            arg3 = argToBV(x[func]['args'][3 + skipArg])
+            arg4 = argToBV(x[func]['args'][4 + skipArg])
+            arg5 = argToBV(x[func]['args'][5 + skipArg])
+            cs = proj.factory.call_state(addr, arg0, arg1, arg2, arg3, arg4, arg5)
+            csm = proj.factory.simgr(cs,veritesting=False)
+            _symExec(csm)
+            getSolns(arg0, csm, func, 0+skipArg)
+            getSolns(arg1, csm, func, 1+skipArg)
+            getSolns(arg2, csm, func, 2+skipArg)
+            getSolns(arg3, csm, func, 3+skipArg)
+            getSolns(arg4, csm, func, 4+skipArg)
+            getSolns(arg5, csm, func, 5+skipArg)
+        elif nargs==7:
+            arg0 = argToBV(x[func]['args'][0 + skipArg])
+            arg1 = argToBV(x[func]['args'][1 + skipArg])
+            arg2 = argToBV(x[func]['args'][2 + skipArg])
+            arg3 = argToBV(x[func]['args'][3 + skipArg])
+            arg4 = argToBV(x[func]['args'][4 + skipArg])
+            arg5 = argToBV(x[func]['args'][5 + skipArg])
+            arg6 = argToBV(x[func]['args'][6 + skipArg])
+            cs = proj.factory.call_state(addr, arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+            csm = proj.factory.simgr(cs,veritesting=False)
+            _symExec(csm)
+            getSolns(arg0, csm, func, 0+skipArg)
+            getSolns(arg1, csm, func, 1+skipArg)
+            getSolns(arg2, csm, func, 2+skipArg)
+            getSolns(arg3, csm, func, 3+skipArg)
+            getSolns(arg4, csm, func, 4+skipArg)
+            getSolns(arg5, csm, func, 5+skipArg)
+            getSolns(arg6, csm, func, 6+skipArg)
+        elif nargs==8:
+            arg0 = argToBV(x[func]['args'][0 + skipArg])
+            arg1 = argToBV(x[func]['args'][1 + skipArg])
+            arg2 = argToBV(x[func]['args'][2 + skipArg])
+            arg3 = argToBV(x[func]['args'][3 + skipArg])
+            arg4 = argToBV(x[func]['args'][4 + skipArg])
+            arg5 = argToBV(x[func]['args'][5 + skipArg])
+            arg6 = argToBV(x[func]['args'][6 + skipArg])
+            arg7 = argToBV(x[func]['args'][7 + skipArg])
+            cs = proj.factory.call_state(addr, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+            csm = proj.factory.simgr(cs,veritesting=False)
+            _symExec(csm)
+            getSolns(arg0, csm, func, 0+skipArg)
+            getSolns(arg1, csm, func, 1+skipArg)
+            getSolns(arg2, csm, func, 2+skipArg)
+            getSolns(arg3, csm, func, 3+skipArg)
+            getSolns(arg4, csm, func, 4+skipArg)
+            getSolns(arg5, csm, func, 5+skipArg)
+            getSolns(arg6, csm, func, 6+skipArg)
+            getSolns(arg7, csm, func, 7+skipArg)
+        elif nargs==9:
+            arg0 = argToBV(x[func]['args'][0 + skipArg])
+            arg1 = argToBV(x[func]['args'][1 + skipArg])
+            arg2 = argToBV(x[func]['args'][2 + skipArg])
+            arg3 = argToBV(x[func]['args'][3 + skipArg])
+            arg4 = argToBV(x[func]['args'][4 + skipArg])
+            arg5 = argToBV(x[func]['args'][5 + skipArg])
+            arg6 = argToBV(x[func]['args'][6 + skipArg])
+            arg7 = argToBV(x[func]['args'][7 + skipArg])
+            arg8 = argToBV(x[func]['args'][8 + skipArg])
+            cs = proj.factory.call_state(addr, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+            csm = proj.factory.simgr(cs,veritesting=False)
+            _symExec(csm)
+            getSolns(arg0, csm, func, 0+skipArg)
+            getSolns(arg1, csm, func, 1+skipArg)
+            getSolns(arg2, csm, func, 2+skipArg)
+            getSolns(arg3, csm, func, 3+skipArg)
+            getSolns(arg4, csm, func, 4+skipArg)
+            getSolns(arg5, csm, func, 5+skipArg)
+            getSolns(arg6, csm, func, 6+skipArg)
+            getSolns(arg7, csm, func, 7+skipArg)
+            getSolns(arg8, csm, func, 8+skipArg)
+
+def main(argv):
+   global current
+   global results
+   global parseTimeStart 
+   global parseModelTime 
+   global symExecTime 
+   global parseClusterTime 
+   global inferModelTime
+   global startTime
+   global numFuncs
+   startTime = time.time()
+   inputfile = ''
+   enclave = ''
+   stDef = 0
+   try:
+       opts, args = getopt.getopt(argv,"hi:m:e:r:s:t:d:",["ifile="])
+   except getopt.GetoptError:
+      print ('Usage is wrong, please see main for usage')
+      sys.exit(2)
+   for opt, arg in opts:
+      if opt == '-h':
+         print ('test.py -i <inputfile> -o <outputfile>')
+         sys.exit()
+      elif opt in ("-i", "--ifile"):
+         inputfile = arg
+      elif opt in ("-m"):
+         modelFile = arg
+      elif opt in ("-e"):
+         clusterFile = arg
+      elif opt in ("-r"):
+         rawDat = arg
+      elif opt in ("-s"):
+         enclave = arg
+      elif opt in ("-t"):
+         ret = arg
+      elif opt in ("-d"):
+          edlF = arg
+
+   # We want to handle the signal handling ourselves so we can print out stats in the end
+   # TODO: Much better to just dump it in a file 
+   signal.signal(signal.SIGINT, signal_handler)
+   atexit.register(cleanup)
+   #scPrint("")
+   path = "./work"
+   if (os.path.isdir(path)):
+       stdioPrint("Existing work Directory Found, Please cache previous work! \n")
+       quit()
+   os.mkdir(path)
+   current = open("temp","w")
+   results = open("./work/results", "w")
+   sizeMap["void"] = - 1
+   parseTimeStart = time.time()
+   parseRealEDL(edlF)
+   parseEDL(rawDat)
+   #stdioPrint(ec)
+   parseBridge(inputfile)
+   parseRet(ret)
+   stdioPrint(x)
+   parseTimeStart = time.time() - parseTimeStart
+   stdioPrint(funcWithRet)
+   parseModelTime = time.time();
+   parseModel(modelFile)
+   parseModelTime = time.time() - parseModelTime
+   parseClusterTime = time.time()
+   parseCluster(clusterFile)
+   parseClusterTime = time.time() - parseClusterTime
+   symExecTime = time.time()
+   symExec(enclave)
+   symExecTime = time.time() - symExecTime
+   symExecTime = time.time()
+   symExec(enclave)
+   symExecTime = time.time() - symExecTime
+   results.write(str(symExecTime))
+   paths =0;
+   for func in x:
+       if 'solns' in x[func]:
+           paths = paths + x[func]['solns']
+   #stdioPrint("Paths Found" + str(paths))
+   #stdioPrint("Time taken for symex")
+   #stdioPrint(symExecTime)
+   #stdioPrint(ips)
+   #stdioPrint(len(ips))
+   #stdioPrint(edgesB)
+   #stdioPrint(len(edgesB))
+   #results.write("Paths Found" + str(paths))
+   #results.write("Time taken for symex")
+   #results.write(str(symExecTime))
+   #embed()
+   #return
+   #stdioPrint(m)
+   #stdioPrint(x)
+   #stdioPrint("Post parsing prints")
+   #stdioPrint(structs["struct sgxsd_request_negotiation_response"])
+   #func = "sgxsd_enclave_server_stop"
+   #stdioPrint(x[func])
+   #current = open("./temp", 'w+')
+   #writeFunctionWrapper(func)
+   # Uncomment the following line if you just want to run symbolic execution 
+   #return 
+   lx = list(x)
+   numFuncs = len(lx)
+   func = lx[randrange(numFuncs)]
+   #stdioPrint(clu)
+   #stdioPrint(list(ec))
+   stdioPrint("Write Clusters")
+   writeClusters()
+   inferModelTime = time.time()
+   inferModel() 
+   inferModelTime = time.time() - inferModeTime 
+    
+if __name__ == "__main__":
+   if len(sys.argv) > 2:
+       main(sys.argv[1:])

@@ -1,0 +1,12 @@
+diff --git a/sdk/trts/linux/trts_pic.S b/sdk/trts/linux/trts_pic.S
+index 366db08a..64834f69 100644
+--- a/sdk/trts/linux/trts_pic.S
++++ b/sdk/trts/linux/trts_pic.S
+@@ -578,6 +578,7 @@ DECLARE_LOCAL_FUNC do_rdrand
+ DECLARE_LOCAL_FUNC abort
+     lea_pic g_enclave_state, %xax
+     movl    $ENCLAVE_CRASHED, (%xax)
++    call    libsfuzz_abort 
+     ud2
+ 
+ /* 

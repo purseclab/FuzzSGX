@@ -1,0 +1,298 @@
+char * temp = NULL;
+int CBVIUjHrNZ_1;
+
+int* XYATezIgHE_1 = &CBVIUjHrNZ_1;
+ret = enc_wolfSSL_Cleanup(global_eid, XYATezIgHE_1);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+long int TIVvsNwoiF_1;
+temp = (char *)&TIVvsNwoiF_1;
+
+long int* gKoJyCJyRN_1 = &TIVvsNwoiF_1;
+ long int JAIQbhWKPT_2;
+temp = (char *)&JAIQbhWKPT_2;
+fgets(temp,8, stdin);
+
+ret = enc_wolfSSL_CTX_new(global_eid, gKoJyCJyRN_1, JAIQbhWKPT_2);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+int oWFjNNUOnn_1;
+temp = (char *)&oWFjNNUOnn_1;
+
+int* tWnmiQgDOo_1 = &oWFjNNUOnn_1;
+ long int fepRnZduYo_2;
+temp = (char *)&fepRnZduYo_2;
+fgets(temp,8, stdin);
+
+char rHToTAMZZC_3;
+temp = (char *)&rHToTAMZZC_3;
+fgets(temp,1, stdin);
+
+ const char* JvisplAyie_3 = &rHToTAMZZC_3;
+ret = enc_wolfSSL_CTX_set_cipher_list(global_eid, tWnmiQgDOo_1, fepRnZduYo_2, JvisplAyie_3);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+long int qzdqMYxDDZ_1;
+temp = (char *)&qzdqMYxDDZ_1;
+
+long int* EbGCNcBKCC_1 = &qzdqMYxDDZ_1;
+ long int JSCyfUSnGK_2;
+temp = (char *)&JSCyfUSnGK_2;
+fgets(temp,8, stdin);
+
+ret = enc_wolfSSL_new(global_eid, EbGCNcBKCC_1, JSCyfUSnGK_2);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+long int OJChfbcPIF_1;
+long int* dUVvCyVgTH_1 = &OJChfbcPIF_1;
+ret = enc_wolfTLSv1_2_client_method(global_eid, dUVvCyVgTH_1);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+ret = enc_wolfSSL_Debugging_ON(global_eid);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+int kKpxCXrosL_1;
+temp = (char *)&kKpxCXrosL_1;
+
+int* MRDjCvMZBo_1 = &kKpxCXrosL_1;
+ long int aEorOnoBGe_2;
+temp = (char *)&aEorOnoBGe_2;
+fgets(temp,8, stdin);
+
+unsigned char DtdIbtskvC_3;
+temp = (char *)&DtdIbtskvC_3;
+fgets(temp,1, stdin);
+
+ const unsigned char* XQImdmxPQc_3 = &DtdIbtskvC_3;
+ long int DjpXzzeUCt_4;
+temp = (char *)&DjpXzzeUCt_4;
+fgets(temp,8, stdin);
+
+ int YEfbridZDv_5;
+temp = (char *)&YEfbridZDv_5;
+fgets(temp,4, stdin);
+
+ret = enc_wolfSSL_CTX_load_verify_buffer(global_eid, MRDjCvMZBo_1, aEorOnoBGe_2, XQImdmxPQc_3, DjpXzzeUCt_4, YEfbridZDv_5);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+int HIOQluqsZs_1;
+temp = (char *)&HIOQluqsZs_1;
+
+int* uNexwfUMnT_1 = &HIOQluqsZs_1;
+ long int WKqmgAXvom_2;
+temp = (char *)&WKqmgAXvom_2;
+fgets(temp,8, stdin);
+
+unsigned char xoADQsGUIe_3;
+temp = (char *)&xoADQsGUIe_3;
+fgets(temp,1, stdin);
+
+ const unsigned char* ajlaMPvPTJ_3 = &xoADQsGUIe_3;
+ long int bAggCQyMaY_4;
+temp = (char *)&bAggCQyMaY_4;
+fgets(temp,8, stdin);
+
+ int xaYhMGQTUa_5;
+temp = (char *)&xaYhMGQTUa_5;
+fgets(temp,4, stdin);
+
+ret = enc_wolfSSL_CTX_use_certificate_buffer(global_eid, uNexwfUMnT_1, WKqmgAXvom_2, ajlaMPvPTJ_3, bAggCQyMaY_4, xaYhMGQTUa_5);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+ long int jdpqJHrtUv_1;
+temp = (char *)&jdpqJHrtUv_1;
+fgets(temp,8, stdin);
+
+ret = enc_wolfSSL_free(global_eid, jdpqJHrtUv_1);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+int LGFkwoaxYT_1;
+temp = (char *)&LGFkwoaxYT_1;
+
+int* WAyMmCPbos_1 = &LGFkwoaxYT_1;
+ long int SJSEACuZiC_2;
+temp = (char *)&SJSEACuZiC_2;
+fgets(temp,8, stdin);
+
+unsigned char FoeoxoPILr_3;
+temp = (char *)&FoeoxoPILr_3;
+fgets(temp,1, stdin);
+
+ const unsigned char* cVgPGRuqKp_3 = &FoeoxoPILr_3;
+ long int PhMMXdMNQi_4;
+temp = (char *)&PhMMXdMNQi_4;
+fgets(temp,8, stdin);
+
+ int fdvFKizIba_5;
+temp = (char *)&fdvFKizIba_5;
+fgets(temp,4, stdin);
+
+ret = enc_wolfSSL_CTX_use_certificate_chain_buffer_format(global_eid, WAyMmCPbos_1, SJSEACuZiC_2, cVgPGRuqKp_3, PhMMXdMNQi_4, fdvFKizIba_5);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+long int rYCYWpGXZb_1;
+long int* MkmTnuREpi_1 = &rYCYWpGXZb_1;
+ret = enc_wolfTLSv1_2_server_method(global_eid, MkmTnuREpi_1);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+int ghLBTzknEl_1;
+temp = (char *)&ghLBTzknEl_1;
+
+int* zIiSUVcUCR_1 = NULL;
+ long int OcgDssVFyw_2;
+temp = (char *)&OcgDssVFyw_2;
+fgets(temp,8, stdin);
+
+ret = enc_wolfSSL_connect(global_eid, zIiSUVcUCR_1, OcgDssVFyw_2);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+int akInsSyyKl_1;
+temp = (char *)&akInsSyyKl_1;
+
+int* BhWPfscDpy_1 = NULL;
+ long int nGWDftxNHr_2;
+temp = (char *)&nGWDftxNHr_2;
+fgets(temp,8, stdin);
+
+unsigned char usvrVrWDxy_3;
+temp = (char *)&usvrVrWDxy_3;
+fgets(temp,1, stdin);
+
+ const unsigned char* ZrttGGQnbF_3 = &usvrVrWDxy_3;
+ long int JGOcajELEU_4;
+temp = (char *)&JGOcajELEU_4;
+fgets(temp,8, stdin);
+
+ int bZhJXGbRSY_5;
+temp = (char *)&bZhJXGbRSY_5;
+fgets(temp,4, stdin);
+
+ret = enc_wolfSSL_CTX_use_PrivateKey_buffer(global_eid, BhWPfscDpy_1, nGWDftxNHr_2, ZrttGGQnbF_3, JGOcajELEU_4, bZhJXGbRSY_5);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+int AOubFtDZEd_1;
+temp = (char *)&AOubFtDZEd_1;
+
+int* hWlItUGHyi_1 = &AOubFtDZEd_1;
+ long int myeYOaTzQh_2;
+temp = (char *)&myeYOaTzQh_2;
+fgets(temp,8, stdin);
+
+ int mkXVrwnOmP_3;
+temp = (char *)&mkXVrwnOmP_3;
+fgets(temp,4, stdin);
+
+ret = enc_wolfSSL_set_fd(global_eid, hWlItUGHyi_1, myeYOaTzQh_2, mkXVrwnOmP_3);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+ long int EvARDQRbpM_1;
+temp = (char *)&EvARDQRbpM_1;
+fgets(temp,8, stdin);
+
+ret = enc_wolfSSL_CTX_free(global_eid, EvARDQRbpM_1);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+int GNDiTnrhXD_1;
+
+int* UfNVJHsKxD_1 = &GNDiTnrhXD_1;
+ret = enc_wolfSSL_Init(global_eid, UfNVJHsKxD_1);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+int FrzbSoONMo_1;
+temp = (char *)&FrzbSoONMo_1;
+
+int* mXGlGUyEOC_1 = &FrzbSoONMo_1;
+ long int coTjxGLplo_2;
+temp = (char *)&coTjxGLplo_2;
+fgets(temp,8, stdin);
+
+char lNcUYNxzpM_3[501];
+temp = (char *)&lNcUYNxzpM_3;
+fgets(temp,501, stdin);
+
+void* zwAlQCNzAe_3 = &lNcUYNxzpM_3;
+ int fkEIzisCYm_4;
+temp = (char *)&fkEIzisCYm_4;
+fgets(temp,4, stdin);
+
+ret = enc_wolfSSL_read(global_eid, mXGlGUyEOC_1, coTjxGLplo_2, zwAlQCNzAe_3, fkEIzisCYm_4);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+int dffuGWigUF_1;
+temp = (char *)&dffuGWigUF_1;
+
+int* unPyOvgpSP_1 = &dffuGWigUF_1;
+ long int vrGqeLUjbu_2;
+temp = (char *)&vrGqeLUjbu_2;
+fgets(temp,8, stdin);
+
+ int qmlweATYtm_3;
+temp = (char *)&qmlweATYtm_3;
+fgets(temp,4, stdin);
+
+ret = enc_wolfSSL_get_error(global_eid, unPyOvgpSP_1, vrGqeLUjbu_2, qmlweATYtm_3);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+ret = enc_wolfSSL_Debugging_OFF(global_eid);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
+int KWkRWxnzks_1;
+temp = (char *)&KWkRWxnzks_1;
+
+int* azPzxqypEl_1 = &KWkRWxnzks_1;
+ long int BboZQOOayF_2;
+temp = (char *)&BboZQOOayF_2;
+fgets(temp,8, stdin);
+
+char ccZUNAlyxW_3[157];
+temp = (char *)&ccZUNAlyxW_3;
+fgets(temp,157, stdin);
+
+ const void* YdxBHlBnEr_3 = &ccZUNAlyxW_3;
+ int rvkckQsZoo_4;
+temp = (char *)&rvkckQsZoo_4;
+fgets(temp,4, stdin);
+
+ret = enc_wolfSSL_write(global_eid, azPzxqypEl_1, BboZQOOayF_2, YdxBHlBnEr_3, rvkckQsZoo_4);
+
+if (ret != SGX_SUCCESS)
+	printf("Failure Code: %d",ret); 
+
