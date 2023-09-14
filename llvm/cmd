@@ -1,0 +1,1 @@
+/home/arslan/Documents/LBC/rustc/rust/rust_ws/../build/x86_64-unknown-linux-gnu/llvm/bin/opt  -load ./LLVMIOSan.so -constprop -dce -ipconstprop -ipsccp -sroa -mem2reg -instcombine -hello2 -gvn -licm  < /home/arslan/Documents/LBC/rustc/rust/src/llvm-project/llvm/lib/Transforms/IOSanitizer/ws/test.bc > /dev/null

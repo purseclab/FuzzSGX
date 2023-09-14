@@ -1,0 +1,140 @@
+; ModuleID = './ws/test.c'
+source_filename = "./ws/test.c"
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+%struct.a = type { i8, i32, i32 }
+
+@mmio3 = dso_local local_unnamed_addr global i32* inttoptr (i64 897897800 to i32*), align 8, !dbg !0
+@mmio_s = dso_local local_unnamed_addr global %struct.a* inttoptr (i64 100 to %struct.a*), align 8, !dbg !16
+
+; Function Attrs: nofree noinline norecurse nounwind uwtable
+define dso_local void @access2(i32*) local_unnamed_addr #0 !dbg !25 {
+  call void @llvm.dbg.value(metadata i32* %0, metadata !29, metadata !DIExpression()), !dbg !30
+  store volatile i32 100, i32* %0, align 4, !dbg !31, !tbaa !32
+  ret void, !dbg !36
+}
+
+; Function Attrs: nofree noinline norecurse nounwind uwtable
+define dso_local void @access(i32*) local_unnamed_addr #0 !dbg !37 {
+  call void @llvm.dbg.value(metadata i32* %0, metadata !39, metadata !DIExpression()), !dbg !40
+  tail call void @access2(i32* %0), !dbg !41
+  ret void, !dbg !42
+}
+
+; Function Attrs: noinline norecurse nounwind readonly uwtable
+define dso_local i64* @getPointer() local_unnamed_addr #1 !dbg !43 {
+  call void @llvm.dbg.value(metadata i32 0, metadata !50, metadata !DIExpression()), !dbg !52
+  %1 = load i64*, i64** bitcast (%struct.a** @mmio_s to i64**), align 8, !dbg !53, !tbaa !54
+  call void @llvm.dbg.value(metadata i64* %1, metadata !51, metadata !DIExpression()), !dbg !52
+  ret i64* %1, !dbg !56
+}
+
+; Function Attrs: nofree norecurse nounwind uwtable
+define dso_local i32 @main(i32, i8** nocapture readnone) local_unnamed_addr #2 !dbg !57 {
+  call void @llvm.dbg.value(metadata i32 %0, metadata !63, metadata !DIExpression()), !dbg !73
+  call void @llvm.dbg.value(metadata i8** %1, metadata !64, metadata !DIExpression()), !dbg !73
+  call void @llvm.dbg.value(metadata %struct.a* inttoptr (i64 12345678 to %struct.a*), metadata !65, metadata !DIExpression()), !dbg !73
+  %3 = load i8*, i8** bitcast (%struct.a** @mmio_s to i8**), align 8, !dbg !74, !tbaa !54
+  call void @llvm.dbg.value(metadata i8* %3, metadata !68, metadata !DIExpression()), !dbg !73
+  store volatile i8 0, i8* %3, align 1, !dbg !75, !tbaa !76
+  %4 = tail call i64* @getPointer(), !dbg !77
+  call void @llvm.dbg.value(metadata i64* %4, metadata !72, metadata !DIExpression()), !dbg !73
+  store volatile i64 100, i64* %4, align 8, !dbg !78, !tbaa !79
+  ret i32 0, !dbg !81
+}
+
+; Function Attrs: nounwind readnone speculatable
+declare void @llvm.dbg.value(metadata, metadata, metadata) #3
+
+attributes #0 = { nofree noinline norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { noinline norecurse nounwind readonly uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #2 = { nofree norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #3 = { nounwind readnone speculatable }
+
+!llvm.dbg.cu = !{!2}
+!llvm.module.flags = !{!21, !22, !23}
+!llvm.ident = !{!24}
+
+!0 = !DIGlobalVariableExpression(var: !1, expr: !DIExpression())
+!1 = distinct !DIGlobalVariable(name: "mmio3", scope: !2, file: !3, line: 2, type: !18, isLocal: false, isDefinition: true)
+!2 = distinct !DICompileUnit(language: DW_LANG_C99, file: !3, producer: "clang version 9.0.0 (tags/RELEASE_900/final)", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug, enums: !4, retainedTypes: !5, globals: !15, nameTableKind: None)
+!3 = !DIFile(filename: "./ws/test.c", directory: "/home/arslan/Documents/LBC/rustc/rust/src/llvm-project/llvm/lib/Transforms/IOSanitizer")
+!4 = !{}
+!5 = !{!6}
+!6 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !7, size: 64)
+!7 = !DIDerivedType(tag: DW_TAG_typedef, name: "A", file: !3, line: 7, baseType: !8)
+!8 = distinct !DICompositeType(tag: DW_TAG_structure_type, name: "a", file: !3, line: 3, size: 96, elements: !9)
+!9 = !{!10, !12, !14}
+!10 = !DIDerivedType(tag: DW_TAG_member, name: "a", scope: !8, file: !3, line: 4, baseType: !11, size: 8)
+!11 = !DIBasicType(name: "char", size: 8, encoding: DW_ATE_signed_char)
+!12 = !DIDerivedType(tag: DW_TAG_member, name: "reg_b", scope: !8, file: !3, line: 5, baseType: !13, size: 32, offset: 32)
+!13 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
+!14 = !DIDerivedType(tag: DW_TAG_member, name: "reg_c", scope: !8, file: !3, line: 6, baseType: !13, size: 32, offset: 64)
+!15 = !{!0, !16}
+!16 = !DIGlobalVariableExpression(var: !17, expr: !DIExpression())
+!17 = distinct !DIGlobalVariable(name: "mmio_s", scope: !2, file: !3, line: 8, type: !6, isLocal: false, isDefinition: true)
+!18 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !19, size: 64)
+!19 = !DIDerivedType(tag: DW_TAG_volatile_type, baseType: !20)
+!20 = !DIBasicType(name: "unsigned int", size: 32, encoding: DW_ATE_unsigned)
+!21 = !{i32 2, !"Dwarf Version", i32 4}
+!22 = !{i32 2, !"Debug Info Version", i32 3}
+!23 = !{i32 1, !"wchar_size", i32 4}
+!24 = !{!"clang version 9.0.0 (tags/RELEASE_900/final)"}
+!25 = distinct !DISubprogram(name: "access2", scope: !3, file: !3, line: 9, type: !26, scopeLine: 9, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !2, retainedNodes: !28)
+!26 = !DISubroutineType(types: !27)
+!27 = !{null, !18}
+!28 = !{!29}
+!29 = !DILocalVariable(name: "par", arg: 1, scope: !25, file: !3, line: 9, type: !18)
+!30 = !DILocation(line: 0, scope: !25)
+!31 = !DILocation(line: 10, column: 7, scope: !25)
+!32 = !{!33, !33, i64 0}
+!33 = !{!"int", !34, i64 0}
+!34 = !{!"omnipotent char", !35, i64 0}
+!35 = !{!"Simple C/C++ TBAA"}
+!36 = !DILocation(line: 11, column: 1, scope: !25)
+!37 = distinct !DISubprogram(name: "access", scope: !3, file: !3, line: 12, type: !26, scopeLine: 12, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !2, retainedNodes: !38)
+!38 = !{!39}
+!39 = !DILocalVariable(name: "par", arg: 1, scope: !37, file: !3, line: 12, type: !18)
+!40 = !DILocation(line: 0, scope: !37)
+!41 = !DILocation(line: 13, column: 2, scope: !37)
+!42 = !DILocation(line: 14, column: 1, scope: !37)
+!43 = distinct !DISubprogram(name: "getPointer", scope: !3, file: !3, line: 16, type: !44, scopeLine: 16, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !2, retainedNodes: !49)
+!44 = !DISubroutineType(types: !45)
+!45 = !{!46}
+!46 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !47, size: 64)
+!47 = !DIDerivedType(tag: DW_TAG_volatile_type, baseType: !48)
+!48 = !DIBasicType(name: "long unsigned int", size: 64, encoding: DW_ATE_unsigned)
+!49 = !{!50, !51}
+!50 = !DILocalVariable(name: "i", scope: !43, file: !3, line: 17, type: !13)
+!51 = !DILocalVariable(name: "addr", scope: !43, file: !3, line: 18, type: !46)
+!52 = !DILocation(line: 0, scope: !43)
+!53 = !DILocation(line: 18, column: 34, scope: !43)
+!54 = !{!55, !55, i64 0}
+!55 = !{!"any pointer", !34, i64 0}
+!56 = !DILocation(line: 19, column: 2, scope: !43)
+!57 = distinct !DISubprogram(name: "main", scope: !3, file: !3, line: 21, type: !58, scopeLine: 21, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !2, retainedNodes: !62)
+!58 = !DISubroutineType(types: !59)
+!59 = !{!13, !13, !60}
+!60 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !61, size: 64)
+!61 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !11, size: 64)
+!62 = !{!63, !64, !65, !68, !72}
+!63 = !DILocalVariable(name: "argc", arg: 1, scope: !57, file: !3, line: 21, type: !13)
+!64 = !DILocalVariable(name: "argv", arg: 2, scope: !57, file: !3, line: 21, type: !60)
+!65 = !DILocalVariable(name: "mmio_s1", scope: !57, file: !3, line: 23, type: !66)
+!66 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !67, size: 64)
+!67 = !DIDerivedType(tag: DW_TAG_volatile_type, baseType: !7)
+!68 = !DILocalVariable(name: "addr", scope: !57, file: !3, line: 24, type: !69)
+!69 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !70, size: 64)
+!70 = !DIDerivedType(tag: DW_TAG_volatile_type, baseType: !71)
+!71 = !DIBasicType(name: "unsigned char", size: 8, encoding: DW_ATE_unsigned_char)
+!72 = !DILocalVariable(name: "pointer", scope: !57, file: !3, line: 62, type: !46)
+!73 = !DILocation(line: 0, scope: !57)
+!74 = !DILocation(line: 24, column: 34, scope: !57)
+!75 = !DILocation(line: 25, column: 8, scope: !57)
+!76 = !{!34, !34, i64 0}
+!77 = !DILocation(line: 62, column: 37, scope: !57)
+!78 = !DILocation(line: 63, column: 11, scope: !57)
+!79 = !{!80, !80, i64 0}
+!80 = !{!"long", !34, i64 0}
+!81 = !DILocation(line: 64, column: 2, scope: !57)

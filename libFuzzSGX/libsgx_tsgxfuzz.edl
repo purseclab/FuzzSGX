@@ -1,0 +1,60 @@
+enclave {
+
+
+    /*
+     * A subset of the C99 standard is supported as well as SGX customized functions:
+     *  sgx_cpuid, etc.
+     */
+
+    /* include "/home/arslan/Documents/sgxsdk/sgxsdk/SampleCode/converage-guided-full-enclave-fuzzer/Enclave/TrustedLibrary/lasan.h" */
+    trusted {
+	include "pthread.h"
+	include "forward_decl.h"
+#define TEST_BUILD
+#ifdef TEST_BUILD
+	public void testFuzzSGX(int shmid);
+#endif 
+	/* include "sys/resource.h" */
+    };
+
+    untrusted {
+	char * libsfuzz_ocall_getenv([in, string]const char *name);
+        int libsfuzz_ocall_open([in, string] const char *pathname, int flags);
+        int libsfuzz_ocall_close(int fd);
+        int libsfuzz_ocall_pthread_attr_init([in] pthread_attr_t *attr);
+        int libsfuzz_ocall_pthread_attr_destroy([in] pthread_attr_t *attr);
+        int libsfuzz_ocall_isatty(int fd);
+        int libsfuzz_ocall_pipe([in] int pipefd[2]);
+        int libsfuzz_ocall_usleep(unsigned long long usec);
+        int libsfuzz_ocall_sleep(unsigned int seconds);
+        int libsfuzz_ocall_execv([in, string] const char *pathname, int argv_num, [in,string] char * argv1, [in,string] char * argv2, [in,string] char * argv3);
+        int libsfuzz_ocall_pthread_attr_setstacksize([in,out] pthread_attr_t *attr, size_t stacksize);
+        int libsfuzz_ocall_pthread_attr_getstacksize([in,out] pthread_attr_t *attr, [in,out] size_t *stacksize);
+        unsigned long long libsfuzz_ocall_getuid(void);
+        long libsfuzz_ocall_sysconf(int name);
+        int libsfuzz_ocall_shm_open([in,string]const char *name, int oflag, unsigned long long  mode);
+        int libsfuzz_ocall_shm_unlink([in,string]const char *name);
+        void libsfuzz_ocall_syslog_chk(int priority, int flag, [in,string] const char * format);
+        int libsfuzz_ocall_snprintf_chk([in, string]char * str, size_t maxlen, int flag, size_t stlen, [in, string] const char * format);
+        int libsfuzz_ocall_getrusage(int who, [in, size=srusage] struct rusage *usage);
+        int libsfuzz_ocall_sched_yield(void);
+        int libsfuzz_ocall_pthread_getattr_np(pthread_t thread, [in] pthread_attr_t *attr);
+        void * libsfuzz_ocall_pthread_getspecific(pthread_key_t key);
+        int libsfuzz_ocall_pthread_setspecific(pthread_key_t key, [user_check] const void *value);
+        int libsfuzz_ocall_pthread_key_create([in,out] pthread_key_t *key, int  nodestructor);
+        size_t libsfuzz_libsfuzz_ocall_readlink([in, string]const char *pathname, [in,out, size=bufsiz]char *buf, size_t bufsiz);
+        pthread_t libsfuzz_ocall_pthread_self(void);
+        int libsfuzz_ocall_fxstat (int vers, int fd, [in,size=sstat] struct stat *buf);
+        int libsfuzz_ocall_sigaltstack(unsigned long long ss, unsigned long long old_ss);
+        int libsfuzz_ocall_getrlimit(int resource, [size=16, in, out]struct rlimit *rlim);
+        int libsfuzz_ocall_setrlimit(int resource, [size=16, in] const struct rlimit *rlim);
+        void * libsfuzz_ocall_dlsym(unsigned long long handle, [in, string] const char *symbol);
+        int libsfuzz_ocall_waitpid(int pid, [in, out] int *stat_loc, int options);
+        size_t libsfuzz_ocall_write(int fd, [in, size=count]const void *buf, size_t count);
+        size_t libsfuzz_ocall_read(int fd, [in,out, size=count] void *buf, size_t count);
+	void libsfuzz_ocall_exit(int stat);
+        unsigned long long libsfuzz_ocall_shmat(int shmid, unsigned long long shmaddr, int shmflg);
+	void * libsfuzz_ocall_calloc(size_t items, size_t size);
+	void libsfuzz_ocall_abort();
+    };
+};

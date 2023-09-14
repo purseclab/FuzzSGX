@@ -1,0 +1,3 @@
+export CC=afl-gcc
+export CXX=afl-g++
+export LIB_SFUZZ=/home/arslan/Documents/sgxsdk/sgxsdk/SampleCode/libFuzzSGX/

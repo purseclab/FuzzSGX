@@ -1,0 +1,484 @@
+#!/usr/bin/python
+
+import sys, getopt
+from random import randrange
+import string
+import random
+from cStringIO import StringIO
+from IPython import embed
+mystdout = StringIO()
+x={}
+m={}
+unfuzzSnippet=[]
+fuzzSnippet=[]
+#
+typedefs = {}
+stDef = 0
+debugPrint = 0
+parseBuf=[]
+structs={}
+aliases={}
+isEnum = False
+current = open("temp","w")
+import subprocess
+
+def parseStruct(parseBuf):
+    members = parseBuf[1:-1]
+    tag = parseBuf[0]
+    if ("typedef" in tag):
+        alias = parseBuf[-1].replace(";","").replace("}","").strip()
+        tag= tag.replace("typedef ","").replace("{", "").rstrip()
+        #scPrint( "Tag is:" + tag)
+        #scPrint( "Alias is:" + alias)
+
+    structs[tag]={}
+    structs[tag]['numMembers']=len(members)
+    structs[tag]['mem'] = {}
+    for member in members:
+        typeName = member.split()
+        structs[tag]['mem'][typeName[-1].replace(";","")] = " ".join(typeName[:-1])
+    #scPrint(structs)
+
+
+
+def parsePrototype(proto):
+    global stDef
+    global debugPrint
+    global parseBuf
+    global isEnum
+    words = proto.split()
+    #scPrint(words)
+    if "struct" in words or "union" in words or "enum" in words:
+        func = False
+        for word in words:
+            if ");" in word:
+                func=True
+        if (not func):
+            if "enum" in words:
+                isEnum = True
+            stDef += 1
+
+    if (stDef > 0):
+        parseBuf.append(proto)
+    
+    if "}" in proto and ";" in proto:
+        stDef -= 1
+    if (stDef > 0):
+        debugPrint = True
+        return
+    elif (debugPrint  and stDef ==0):
+        #scPrint(parseBuf)
+        debugPrint = 0
+        #completely parsed the struct definition
+        #if isEnum:
+        #    parseEnum(parseBuf)
+        #    isEnum = False
+        #else:
+        #    parseStruct(parseBuf)
+        parseStruct(parseBuf)
+        parseBuf=[]
+        return
+
+    #this is an alias register it
+    if "typedef" in proto:
+        aliasTo = proto.split(' ')[-1].replace(";","")
+        aliasFrom = proto.split(' ')[1:-1]
+        arrSize = 0
+        if ("[" in aliasTo):
+            aliasTo, arr = aliasTo.split("[")
+            arrSize = int(arr.replace("]",""))
+        #scPrint(aliasTo)
+        aliases[aliasTo] ={}
+        aliases[aliasTo]["from"] = " ".join(aliasFrom)
+        aliases[aliasTo]["arrSize"] = arrSize
+        #scPrint(aliases)
+        return
+
+    #scPrint(proto)
+    ret, proto = proto.split(' ', 1)
+    name, proto = proto.split('(',1)
+    #scPrint(name)
+    name = name.strip()
+    x[name]={}
+    x[name]['ret'] = ret
+    #print 'Func Name:' + name
+    #print 'return value:' + x[name]['ret']
+    argsJoined,_ = proto.split(');',1)
+    #print 'Func Args:' + x['args']
+    args = argsJoined.split(',')
+    x[name]['numargs'] = len(args)
+    i = 0;
+    x[name]['args']= {}
+    for arg in args:
+        typeName = arg.split(' ')
+        argtype,argname=typeName[:-1],typeName[-1]
+        size = argname.split('[')
+        isArr = False
+        arrSize = 0
+        if (len(size) == 2):
+            arrSize = size[-1].split(']')[0]
+            argname = size[0]
+            isArr = True
+        x[name]['args'][i] = {}
+        x[name]['args'][i]['arrSize'] = arrSize
+        x[name]['args'][i]['type'] = " ".join(argtype)
+        x[name]['args'][i]['id'] = argname
+#        if (isArr):
+#            print 'Type:' +'Array of size' + arrSize+ 'of type'.join(argtype)
+#        else:
+#            print 'Type:' +''.join(argtype)
+        i += 1
+        #print 'Name:' + argname
+
+    #print x[name]
+
+def parseChain(chain):
+    #print chain
+    arg,chain=chain.split('->',1);
+    firstarg = arg
+#    print firstarg
+    while(True):
+        funcname,argnum = arg.split(":",1)
+        nextarg,temp = chain.split('->',1)
+        m[arg] = nextarg
+        #print "Keying for: " + funcname + " " +argnum
+        #print x[funcname]
+        x[funcname]['args'][int(argnum)]['chain'] = firstarg
+        #print x[funcname]['args'][int(argnum)]['chain']
+        #print arg +'->'+ m[arg]
+        if temp == "-|":
+            #register node here though
+            break
+        #if (argnum.isdecimal()):
+        arg,chain=chain.split('->',1);
+
+def parseBridge(bridge):
+    with open(bridge) as fp:
+       line = fp.readline()
+       while line:
+           parsePrototype(line.strip())
+           line = fp.readline()
+
+def parseModel(model):
+    with open(model) as fp:
+       line = fp.readline()
+       while line:
+           parseChain(line.strip())
+           line = fp.readline()
+
+def randomString(stringLength):
+    letters = string.ascii_letters
+    return ''.join(random.choice(letters) for i in range(stringLength))
+
+def printw(string):
+    sys.stdout.write(string)
+
+
+def make_unicode(input):
+    if type(input) != unicode:
+        input =  input.decode('utf-8')
+    return input
+
+def writeFunction(func, carg=[], cid="", retmap= {}, genRetVal=False):
+    #print carg
+    id=[]
+    arr=""
+    ret_val = ""
+    #print cid
+    for arg in x[func]['args']:
+        #See if this arg is in chain 
+        if(str(arg) in carg):
+            if (cid !=""):
+                id.append(cid)
+                continue
+
+        #See if arg is from another call's return 
+        if(retmap.has_key(str(arg))):
+            id.append(retmap[str(arg)])
+            continue
+
+        ast = x[func]['args'][arg]
+        if (ast['type'] == 'sgx_enclave_id_t'):
+            id.append( 'global_eid')
+            continue
+        id.append(randomString(10))
+        #scPrint(ast['arrSize'])
+        if ast['arrSize'] != 0:
+            arr="[" + str(ast['arrSize']) + "]"
+        else:
+            arr=""
+        print ast['type'] + " " + id[arg] + arr + ";"
+        if(str(arg) in carg):
+            #print "Here"
+            #See if this was the first time we wrote the chained variable
+            cid = id[arg]
+    if genRetVal:
+        ret_val = randomString(10)
+        print x[func]['ret'] + " " +ret_val + ";"
+        printw (ret_val + " = ")
+    printw (func + "(")
+    printw (', '.join(map(str, id)))
+    print(");")
+    return cid,ret_val
+
+def scPrint(obj):
+    #sys.stdout= sys.__stdout__
+    sys.stdout = current
+    print obj
+    sys.stdout= mystdout
+
+
+def stdioPrint(obj):
+    old = sys.stdout 
+    sys.stdout= sys.__stdout__
+    print obj
+    sys.stdout= old
+
+def fuzz(snip):
+    typeName = snip.split(" ")
+    type, id = typeName[:-1],typeName[-1]
+    size = id.split('[');
+    isArr = False
+    arrSize = 0
+    if (len(size) == 2):
+        arrSize = size[-1].split(']')[0]
+        id = size[0]
+        isArr = True
+    type = " ".join(type)
+    #scPrint("Will fuzz "+ id + "for type " + type + " and array of size" + str(arrSize))
+
+    #we fuzz based on the type
+    type = type.strip()
+    id = id.replace(";","")
+    sign = ["","-"]
+    delim=["","",""]
+    if (arrSize != 0):
+        delim=["{","}","["+arrSize+"]"]
+    else:
+        arrSize=1 #Scalar Case
+    val = []
+    #let's take advantage of C weak type systems, all bigger values will be truncated
+    # based on the memory bin
+    intalias=["int","size_t", "char", "wchar_t","short","long", "uint32_t", "uint64_t", "const char"]
+    ptr=["int *", "int*", "float *", "float*", "size_t*", "size_t *", "void *", "void*"]
+    astType = type.split()
+    needLog = True
+    #scPrint(type)
+    if(type in intalias):
+        # generate a random int
+        for x in range(int(arrSize)):
+            val.append(str(random.randint(0, 2147483648)))
+    elif("*" in type):
+        #scPrint(type)
+        pointsto = type.replace("*", "")
+        tempid = randomString(10) 
+        tempsnip = pointsto + " " + tempid + ";"
+        if ("void" in type):
+            tempsnip = "char " + tempid + "[" + str(random.randint(0,2048)) + "];"
+        scPrint(fuzz(tempsnip))
+        delim[0] = "&"
+        sign[1] = ""#unsigned case
+        val.append(tempid)
+    elif(type == "float" or type == "double"):
+        for x in range(int(arrSize)):
+            val.append(str(random.uniform(0, 3.4E+38)))
+    elif (type == "char *" or type == "char*" or type=="const char*" or type=="const char *"):
+        for x in range(int(arrSize)):
+            length = random.randint(0, 16384);
+            val.append("\"" + randomString(length) +"\"")
+    elif (type in structs):
+        rsnip =[snip] 
+        #TODO: Enums could fail if we don't start from zero
+        if ("enum" in type):
+            snip = type + " " + id + " = " + str(random.randint(0,structs[type]["numMembers"])) + ";"
+        else:
+            for mem in structs[type]['mem']:
+                temp = fuzz(structs[type]['mem'][mem] + " " + id+"."+mem + ";").replace(structs[type]['mem'][mem],"")
+                rsnip.append(temp)
+                #scPrint(temp)
+            snip = "\n".join(rsnip)
+        needLog = False
+    elif (aliases.has_key(type)):
+        snip = snip.replace(type,aliases[type]["from"])
+        if aliases[type]["arrSize"] != 0:
+            arrid = id + "[" + str(aliases[type]["arrSize"]) +"]"
+            snip = snip.replace(id, arrid)
+        snip = fuzz(snip)
+        needLog = False
+    else:
+        scPrint(type + "is not handled")
+
+    if needLog:
+        snip = type + " " + id + delim[2] +" = " + delim[0] + sign[random.randint(0,1)] + ", ".join(val) + delim[1] +";"
+
+
+
+
+    
+    #scPrint(snip)
+    return snip
+
+clu={}
+# Python function to print permutations of a given list
+def permutation(lst):
+    # If lst is empty then there are no permutations
+    if len(lst) == 0:
+        return []
+    # If there is only one element in lst then, only
+    # one permuatation is possible
+    if len(lst) == 1:
+        return [lst]
+    # Find the permutations for lst if there are
+    # more than 1 characters
+    l = [] # empty list that will store current permutation
+    # Iterate the input(lst) and calculate the permutation
+    for i in range(len(lst)):
+       m = lst[i]
+       # Extract lst[i] or m from the list.  remLst is
+       # remaining list
+       remLst = lst[:i] + lst[i+1:]
+       # Generating all permutations where m is first
+       # element
+       for p in permutation(remLst):
+           l.append([m] + p)
+    return l
+
+def parseCluster(clfile):
+    with open(clfile) as fp:
+        line = fp.readline()
+        while line:
+            gstate,cluster = line.split(":")
+            cluster = cluster.strip()
+            cluster = cluster[:-1]
+            cluster = cluster.split(",")
+            for node in cluster:
+                node = node.strip()
+            clu[gstate] = permutation(cluster)
+            line = fp.readline()
+        scPrint(clu)
+
+
+def writeFunctionWrapper(func):
+   global mystdout
+   inChain = False;
+   #TODO: What if different arguments are in different chains?
+   #print func
+   #print x
+   #If there's a chain cid, holds the identifier for the chained variable
+   #it is automotically create by writeFunction for us with correct
+   #type
+
+   cid = ""
+   for arg in x[func]['args']:
+        if(x[func]['args'][arg].has_key('chain')):
+            #print func
+            #print arg
+            #print m[x[func]['args'][arg]['chain']]
+            print cid
+            node = x[func]['args'][arg]['chain']
+            exhausted = False
+            while(m.has_key(node)):
+                retmap={}
+                #This check deals with nested calls in parameters
+                if(not make_unicode(node.split(":",1)[1]).isnumeric()):
+                    func, arg, nfunc, narg = node.split(":")
+                    #print "Nested call for" + nfunc
+                    cid,ret_val = writeFunction(nfunc,narg,cid,retmap,True)
+                    retmap[arg] = ret_val
+                carg = [node.split(":",1)[1]]
+                name = node.split(":",1)[0]
+                #Exhaust all the nodes in this call
+                while (m.has_key(node) and m[node].split(":",1)[0] == name):
+                    node = m[node]
+                    #if nested call save the return value
+                    if(not make_unicode(node.split(":",1)[1]).isnumeric()):
+                       func,arg,nfunc,narg = node.split(":")
+                       cid, ret_val =  writeFunction(nfunc,narg,cid,retmap,True)
+                       retmap[arg] = ret_val
+                    carg.append(node.split(":",1)[1])
+
+                #populate pre-gen vars
+                cid,_ = writeFunction(node.split(":",1)[0],carg,cid,retmap,False)
+                #from IPython import embed; embed()
+                if(m.has_key(node)):
+                    node = m[node]
+                else:
+                    exhausted = True;
+                    break
+            if not exhausted:
+                if(not make_unicode(node.split(":",1)[1]).isnumeric()):
+                    func,arg,nfunc,narg = node.split(":")
+                    #print "Nested call for" + nfunc
+                    cid, ret_val =  writeFunction(nfunc,narg,cid,retmap,True)
+                    retmap[arg] = ret_val
+                    cid,_ = writeFunction(nfunc,narg,cid)
+                carg = [node.split(":",1)[1]]
+                writeFunction(node.split(":")[0],carg,cid,retmap,False)
+            inChain = True
+   if(inChain == False):
+       writeFunction(func)
+
+   unfuzzSnippet.append(mystdout.getvalue())
+   #scPrint(unfuzzSnippet)
+   unfuzzSnippetl = mystdout.getvalue().split("\n")
+   for snip in unfuzzSnippetl:
+       if snip and not "(" in snip:
+           snip = fuzz(snip)
+       scPrint(snip)
+   mystdout = StringIO()
+   sys.stdout= mystdout
+
+
+
+
+def main(argv):
+   global current
+   inputfile = ''
+   stDef = 0
+   try:
+       opts, args = getopt.getopt(argv,"hi:m:e:",["ifile="])
+   except getopt.GetoptError:
+      print 'genFuzz -i bridge.h -m apimodel -e enclaveClusters'
+      sys.exit(2)
+   for opt, arg in opts:
+      if opt == '-h':
+         print 'test.py -i <inputfile> -o <outputfile>'
+         sys.exit()
+      elif opt in ("-i", "--ifile"):
+         inputfile = arg
+      elif opt in ("-m"):
+         modelFile = arg
+      elif opt in ("-e"):
+         clusterFile = arg
+        
+
+   parseBridge(inputfile)
+   #scPrint(x)
+   parseModel(modelFile)
+   parseCluster(clusterFile)
+   #print m
+   #print x
+   lx = list(x)
+   numfuncs = len(lx)
+   func = lx[randrange(numfuncs)]
+   stdioPrint(clu)
+   for gstate in clu:
+       i = 0
+       for perm in clu[gstate]:
+           filename = "./" + gstate + str(i)
+           current = open("./" + gstate + str(i), "w")
+           for func in perm:
+               writeFunctionWrapper(func)
+               current.flush()
+           if (subprocess.call(["timeout", "1m", "./runperm.sh", filename]) == 0):
+               clu[gstate][i].insert(0,"GOOD")
+           else:
+               clu[gstate][i].insert(0,"BAD")
+           i+=1
+
+   stdioPrint(clu)
+
+
+if __name__ == "__main__":
+   if len(sys.argv) > 2:
+       main(sys.argv[1:])

@@ -1,0 +1,174 @@
+*** IR Dump After Instrument function entry/exit with calls to e.g. mcount() (pre inlining) ***
+*** IR Dump After Simplify the CFG ***
+*** IR Dump After SROA ***
+*** IR Dump After Early CSE ***
+*** IR Dump After Lower 'expect' Intrinsics ***
+*** IR Dump After Instrument function entry/exit with calls to e.g. mcount() (pre inlining) ***
+*** IR Dump After Simplify the CFG ***
+*** IR Dump After SROA ***
+*** IR Dump After Early CSE ***
+*** IR Dump After Lower 'expect' Intrinsics ***
+*** IR Dump After Force set function attributes ***; ModuleID = '../test.c'
+*** IR Dump After Infer set function attributes ***; ModuleID = '../test.c'
+*** IR Dump After Call-site splitting ***
+*** IR Dump After Call-site splitting ***
+*** IR Dump After Interprocedural Sparse Conditional Constant Propagation ***; ModuleID = '../test.c'
+*** IR Dump After Called Value Propagation ***; ModuleID = '../test.c'
+*** IR Dump After Global Variable Optimizer ***; ModuleID = '../test.c'
+*** IR Dump After Promote Memory to Register ***
+*** IR Dump After Promote Memory to Register ***
+*** IR Dump After Dead Argument Elimination ***; ModuleID = '../test.c'
+*** IR Dump After Combine redundant instructions ***
+*** IR Dump After Simplify the CFG ***
+*** IR Dump After Combine redundant instructions ***
+*** IR Dump After Simplify the CFG ***
+*** IR Dump After Remove unused exception handling info ***
+*** IR Dump After Function Integration/Inlining ***
+*** IR Dump After Deduce function attributes ***
+*** IR Dump After Promote 'by reference' arguments to scalars ***
+*** IR Dump After SROA ***
+*** IR Dump After Early CSE w/ MemorySSA ***
+*** IR Dump After Jump Threading ***
+*** IR Dump After Value Propagation ***
+*** IR Dump After Simplify the CFG ***
+*** IR Dump After Combine redundant instructions ***
+*** IR Dump After Conditionally eliminate dead library calls ***
+*** IR Dump After PGOMemOPSize ***
+*** IR Dump After Tail Call Elimination ***
+*** IR Dump After Simplify the CFG ***
+*** IR Dump After Reassociate expressions ***
+*** IR Dump After Canonicalize natural loops ***
+*** IR Dump After LCSSA Verifier ***
+*** IR Dump After Loop-Closed SSA Form Pass ***
+*** IR Dump After Simplify the CFG ***
+*** IR Dump After Combine redundant instructions ***
+*** IR Dump After Canonicalize natural loops ***
+*** IR Dump After LCSSA Verifier ***
+*** IR Dump After Loop-Closed SSA Form Pass ***
+*** IR Dump After MergedLoadStoreMotion ***
+*** IR Dump After Global Value Numbering ***
+*** IR Dump After MemCpy Optimization ***
+*** IR Dump After Sparse Conditional Constant Propagation ***
+*** IR Dump After Demanded bits analysis ***
+*** IR Dump After Bit-Tracking Dead Code Elimination ***
+*** IR Dump After Combine redundant instructions ***
+*** IR Dump After Jump Threading ***
+*** IR Dump After Value Propagation ***
+*** IR Dump After Dead Store Elimination ***
+*** IR Dump After Canonicalize natural loops ***
+*** IR Dump After LCSSA Verifier ***
+*** IR Dump After Loop-Closed SSA Form Pass ***
+*** IR Dump After Aggressive Dead Code Elimination ***
+*** IR Dump After Simplify the CFG ***
+*** IR Dump After Combine redundant instructions ***
+*** IR Dump After Remove unused exception handling info ***
+*** IR Dump After Function Integration/Inlining ***
+*** IR Dump After Deduce function attributes ***
+*** IR Dump After Promote 'by reference' arguments to scalars ***
+*** IR Dump After Remove unused exception handling info ***
+*** IR Dump After Function Integration/Inlining ***
+*** IR Dump After Deduce function attributes ***
+*** IR Dump After Promote 'by reference' arguments to scalars ***
+*** IR Dump After SROA ***
+*** IR Dump After Early CSE w/ MemorySSA ***
+*** IR Dump After Jump Threading ***
+*** IR Dump After Value Propagation ***
+*** IR Dump After Simplify the CFG ***
+*** IR Dump After Combine redundant instructions ***
+*** IR Dump After Conditionally eliminate dead library calls ***
+*** IR Dump After PGOMemOPSize ***
+*** IR Dump After Tail Call Elimination ***
+*** IR Dump After Simplify the CFG ***
+*** IR Dump After Reassociate expressions ***
+*** IR Dump After Canonicalize natural loops ***
+*** IR Dump After LCSSA Verifier ***
+*** IR Dump After Loop-Closed SSA Form Pass ***
+*** IR Dump After Simplify the CFG ***
+*** IR Dump After Combine redundant instructions ***
+*** IR Dump After Canonicalize natural loops ***
+*** IR Dump After LCSSA Verifier ***
+*** IR Dump After Loop-Closed SSA Form Pass ***
+*** IR Dump After MergedLoadStoreMotion ***
+*** IR Dump After Global Value Numbering ***
+*** IR Dump After MemCpy Optimization ***
+*** IR Dump After Sparse Conditional Constant Propagation ***
+*** IR Dump After Demanded bits analysis ***
+*** IR Dump After Bit-Tracking Dead Code Elimination ***
+*** IR Dump After Combine redundant instructions ***
+*** IR Dump After Jump Threading ***
+*** IR Dump After Value Propagation ***
+*** IR Dump After Dead Store Elimination ***
+*** IR Dump After Canonicalize natural loops ***
+*** IR Dump After LCSSA Verifier ***
+*** IR Dump After Loop-Closed SSA Form Pass ***
+*** IR Dump After Aggressive Dead Code Elimination ***
+*** IR Dump After Simplify the CFG ***
+*** IR Dump After Combine redundant instructions ***
+*** IR Dump After Remove unused exception handling info ***
+*** IR Dump After Function Integration/Inlining ***
+*** IR Dump After Deduce function attributes ***
+*** IR Dump After Promote 'by reference' arguments to scalars ***
+*** IR Dump After A No-Op Barrier Pass ***; ModuleID = '../test.c'
+*** IR Dump After Eliminate Available Externally Globals ***; ModuleID = '../test.c'
+*** IR Dump After Deduce function attributes in RPO ***; ModuleID = '../test.c'
+*** IR Dump After Global Variable Optimizer ***; ModuleID = '../test.c'
+*** IR Dump After Dead Global Elimination ***; ModuleID = '../test.c'
+*** IR Dump After Float to int ***
+*** IR Dump After Canonicalize natural loops ***
+*** IR Dump After LCSSA Verifier ***
+*** IR Dump After Loop-Closed SSA Form Pass ***
+*** IR Dump After Loop Distribution ***
+*** IR Dump After Demanded bits analysis ***
+*** IR Dump After Loop Vectorization ***
+*** IR Dump After Canonicalize natural loops ***
+*** IR Dump After Loop Load Elimination ***
+*** IR Dump After Combine redundant instructions ***
+*** IR Dump After Simplify the CFG ***
+*** IR Dump After Demanded bits analysis ***
+*** IR Dump After SLP Vectorizer ***
+*** IR Dump After Combine redundant instructions ***
+*** IR Dump After Canonicalize natural loops ***
+*** IR Dump After LCSSA Verifier ***
+*** IR Dump After Loop-Closed SSA Form Pass ***
+*** IR Dump After Combine redundant instructions ***
+*** IR Dump After Canonicalize natural loops ***
+*** IR Dump After LCSSA Verifier ***
+*** IR Dump After Loop-Closed SSA Form Pass ***
+*** IR Dump After Alignment from assumptions ***
+*** IR Dump After Float to int ***
+*** IR Dump After Canonicalize natural loops ***
+*** IR Dump After LCSSA Verifier ***
+*** IR Dump After Loop-Closed SSA Form Pass ***
+*** IR Dump After Loop Distribution ***
+*** IR Dump After Demanded bits analysis ***
+*** IR Dump After Loop Vectorization ***
+*** IR Dump After Canonicalize natural loops ***
+*** IR Dump After Loop Load Elimination ***
+*** IR Dump After Combine redundant instructions ***
+*** IR Dump After Simplify the CFG ***
+*** IR Dump After Demanded bits analysis ***
+*** IR Dump After SLP Vectorizer ***
+*** IR Dump After Combine redundant instructions ***
+*** IR Dump After Canonicalize natural loops ***
+*** IR Dump After LCSSA Verifier ***
+*** IR Dump After Loop-Closed SSA Form Pass ***
+*** IR Dump After Combine redundant instructions ***
+*** IR Dump After Canonicalize natural loops ***
+*** IR Dump After LCSSA Verifier ***
+*** IR Dump After Loop-Closed SSA Form Pass ***
+*** IR Dump After Alignment from assumptions ***
+*** IR Dump After Strip Unused Function Prototypes ***; ModuleID = '../test.c'
+*** IR Dump After Dead Global Elimination ***; ModuleID = '../test.c'
+*** IR Dump After Merge Duplicate Global Constants ***; ModuleID = '../test.c'
+*** IR Dump After Canonicalize natural loops ***
+*** IR Dump After LCSSA Verifier ***
+*** IR Dump After Loop-Closed SSA Form Pass ***
+*** IR Dump After Remove redundant instructions ***
+*** IR Dump After Hoist/decompose integer division and remainder ***
+*** IR Dump After Simplify the CFG ***
+*** IR Dump After Canonicalize natural loops ***
+*** IR Dump After LCSSA Verifier ***
+*** IR Dump After Loop-Closed SSA Form Pass ***
+*** IR Dump After Remove redundant instructions ***
+*** IR Dump After Hoist/decompose integer division and remainder ***
+*** IR Dump After Simplify the CFG ***

@@ -1,0 +1,2 @@
+export CC=clang-9
+export CXX=clang++-9

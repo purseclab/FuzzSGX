@@ -1,0 +1,102 @@
+diff --git a/external/dcap_source b/external/dcap_source
+index ab8d31d7..2c236e76 160000
+--- a/external/dcap_source
++++ b/external/dcap_source
+@@ -1 +1 @@
+-Subproject commit ab8d31d72f842adb4b8a49eb3639f2e9a789d13b
++Subproject commit 2c236e7600c579efbfb2e3775b8cb50f0521bda5-dirty
+diff --git a/external/openmp/openmp_code b/external/openmp/openmp_code
+--- a/external/openmp/openmp_code
++++ b/external/openmp/openmp_code
+@@ -1 +1 @@
+-Subproject commit c9e7fc8c97382d61565f7ed180e4ea1cc8895b95
++Subproject commit c9e7fc8c97382d61565f7ed180e4ea1cc8895b95-dirty
+diff --git a/psw/urts/linux/sig_handler.cpp b/psw/urts/linux/sig_handler.cpp
+index 2882cb45..445b8a6e 100644
+--- a/psw/urts/linux/sig_handler.cpp
++++ b/psw/urts/linux/sig_handler.cpp
+@@ -227,7 +227,7 @@ int do_ecall(const int fn, const void *ocall_table, const void *ms, CTrustThread
+ {
+     int status = SGX_ERROR_UNEXPECTED;
+ 
+-#ifdef SE_SIM
++#ifdef SE_SIM_NO_HACK
+     CEnclave* enclave = trust_thread->get_enclave();
+     //check if it is current pid, it is to simulate fork() scenario on HW
+     sgx_enclave_id_t eid = enclave->get_enclave_id();
+diff --git a/sdk/edger8r/linux/CodeGen.ml b/sdk/edger8r/linux/CodeGen.ml
+index 861ba909..b6deb56d 100644
+--- a/sdk/edger8r/linux/CodeGen.ml
++++ b/sdk/edger8r/linux/CodeGen.ml
+@@ -2377,12 +2377,19 @@ let check_priv_funcs (ec: enclave_content) =
+  * Here, a tree reduce algorithm is used. `ec' is the root-node, each
+  * `import' expression is considered as a children.
+  *)
++let rec printList oc s=
++        eprintf "printList was called";
++      match s with
++        [] -> ()
++      | h::t ->  fprintf oc "%s \n" h; printList oc t
++
+ let reduce_import (ec: enclave_content) =
+   (* Append a EDL list to another. Keep the first element and replace the
+    second one with empty element contains functions not in the first one 
+    if both lists contain a same EDL. The function sequence is backwards compatible.*)
+-  let join (ec1: enclave_content list) (ec2: enclave_content list) =
++  let join (ec1: enclave_content list) (ec2: enclave_content list) = 
+     let join_one (acc: enclave_content list) (ec: enclave_content) =
++      eprintf "reduce was called";
+       if List.exists (fun (x: enclave_content) -> x.enclave_name = ec.enclave_name) acc
+       then
+         let match_ec = List.find (fun (x: enclave_content) -> x.enclave_name = ec.enclave_name) acc in
+@@ -2460,6 +2467,8 @@ let reduce_import (ec: enclave_content) =
+         tfunc_decls  = acc.tfunc_decls @ ec2.tfunc_decls;
+         ufunc_decls  = acc.ufunc_decls @ ec2.ufunc_decls; }
+   in
++  let oc = open_out "interface.dat" in
++  printList oc (get_trusted_func_names (ec));
+   List.fold_left (combine) (List.hd imported_ec_list) (List.tl imported_ec_list)
+ 
+ (* Generate the Enclave code. *)
+@@ -2479,4 +2488,5 @@ let gen_enclave_code (e: Ast.enclave) (ep: edger8r_params) =
+     else (
+       (if ep.gen_untrusted then (gen_untrusted_header ec; if not ep.header_only then gen_untrusted_source ec));
+       (if ep.gen_trusted then (gen_trusted_header ec; if not ep.header_only then gen_trusted_source ec))
+-    )
++    );
++
+diff --git a/sdk/edger8r/linux/Edger8r.ml b/sdk/edger8r/linux/Edger8r.ml
+index 141bdc00..9e33d612 100644
+--- a/sdk/edger8r/linux/Edger8r.ml
++++ b/sdk/edger8r/linux/Edger8r.ml
+@@ -31,6 +31,15 @@
+ 
+ 
+ let _ =
++    (*let rec printList list =
++      match list with
++	[] -> 0
++      | _::tl -> 1 + length tl in *)
++  (*  
++  let rec printList s=
++      match s with
++        [] -> 0
++      | h::t ->  Printf.eprintf "%s" h; printList t  in *)
+   let progname = Sys.argv.(0) in
+   let argc = Array.length Sys.argv in
+   let args = if argc = 1 then [||] else Array.sub Sys.argv 1 (argc-1) in
+@@ -43,4 +52,13 @@ let _ =
+       Failure s -> (Printf.eprintf "error: %s\n" s; exit (-1))
+   in
+     if cmd_params.Util.input_files = [] then Util.usage progname
+-    else List.iter real_ast_handler cmd_params.Util.input_files
++    else List.iter real_ast_handler cmd_params.Util.input_files;
++    (* printList(CodeGen.get_trusted_func_names( CodeGen.reduce_import (CodeGen.parse_enclave_ast (List.iter CodeGen.start_parsing cmd_params.Util.input_files)))); *)
++  (*in
++    let main = print_list(CodeGen.get_trusted_func_names); *)
++(* 
++    let names =  CodeGen.get_trusted_func_name() in 
++        let rec printList names= 
++            match names with 
++            | [] -> ()
++            | [h::t] ->  Printf.eprintf h; printList t *)

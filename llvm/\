@@ -1,0 +1,366 @@
+//===- Hello.cpp - Example code from "Writing an LLVM Pass" ---------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements two versions of the LLVM "Hello World" pass described
+// in docs/WritingAnLLVMPass.html
+//
+//===----------------------------------------------------------------------===//
+
+#include "llvm/ADT/Statistic.h"
+#include "llvm/IR/Function.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Analysis/CallGraph.h"
+using namespace llvm;
+
+#define DEBUG_TYPE "hello"
+#define DEBUG
+#undef  DEBUG
+
+STATISTIC(HelloCounter, "Counts number of functions greeted");
+
+namespace {
+	// Hello - The first implementation, without getAnalysisUsage.
+	struct Hello: public FunctionPass {
+		static char ID; // Pass identification, replacement for typeid
+		Hello() :
+			FunctionPass(ID) {
+			}
+
+		bool runOnFunction(Function &F) override {
+			++HelloCounter;
+			errs() << "Hello: ";
+			errs().write_escaped(F.getName()) << '\n';
+			return false;
+		}
+	};
+}
+
+char Hello::ID = 0;
+static RegisterPass<Hello> X("hello", "Hello World Pass");
+namespace {
+	unsigned long getAddrFromGEP(llvm::Instruction *insn) {
+		unsigned long addr = 0;
+		if (llvm::GetElementPtrInst *GEP = dyn_cast < llvm::GetElementPtrInst > (insn)) {
+			uint64_t offset_t = 0;
+			int mem_offset = 0;
+			int num_operands = 0;
+			for (Use &U : insn->operands()) {
+				num_operands++;
+			}
+			errs() << num_operands;
+			errs() << *insn->getOperand(0) << "\n";
+			errs() << *insn->getOperand(0)->getType() << "\n";
+
+			if (ConstantInt *field = dyn_cast < ConstantInt > (GEP->getOperand(num_operands - 1))) {
+				offset_t = field->getValue().getLimitedValue();
+			}
+
+			if (llvm::StructType *ST = dyn_cast < llvm::StructType > (GEP->getSourceElementType())) {
+				uint64_t uit, end = offset_t;
+				uit = 0;
+				for (llvm::StructType::element_iterator el = ST->element_begin(); (uit < end) && (end); uit++, el++) {
+					if (llvm::IntegerType *it = dyn_cast < llvm::IntegerType > (*el)) {
+						mem_offset += it->getBitWidth();
+					}
+				}
+#ifdef DEBUG
+				errs() << "Field acccess at offset:" << mem_offset << "\n";
+#endif
+			}
+			if (llvm::IntegerType *it = dyn_cast < llvm::IntegerType > (GEP->getSourceElementType())) {
+				uint64_t uit, end = offset_t;
+				mem_offset = it->getBitWidth();
+				mem_offset *= offset_t;
+#ifdef DEBUG
+				errs() << "Field acccess at offset:" << mem_offset << "\n";
+#endif
+			}
+			llvm::Value *pointer = GEP->getOperand(0);
+			if (llvm::Instruction * insn = dyn_cast < llvm::Instruction > (pointer)) {
+				llvm::Value *ce = insn->getOperand(0);
+				ce = insn->getOperand(0);
+#ifdef DEBUG
+				for (Value::use_iterator i = ce->use_begin(), e = ce->use_end(); i != e; ++i) {
+					errs() << "Usage :" << *i->get() << "\n";
+				}
+#endif
+				for (auto U : ce->users()) {  // U is of type User*
+					if (auto I = dyn_cast < Instruction > (U)) {
+						if (I->getOpcode() == Instruction::Store) {
+							if (I->getOperand(1) == ce) {
+								if (auto CE = dyn_cast < ConstantExpr > (I->getOperand(0))) {
+									Value *tmp = CE->getOperand(0);
+									if (ConstantInt *CI = dyn_cast < llvm::ConstantInt > (tmp)) {
+#ifdef DEBUG
+										errs() << "Local Field IO access to: " << CI->getValue().getLimitedValue() + mem_offset << "\n";
+#endif
+										LLVMContext &C = I->getContext();
+										MDNode *N = MDNode::get(C,
+												MDString::get(C, std::to_string(CI->getValue().getLimitedValue() + mem_offset)));
+										I->setMetadata("acl", N);
+										addr = CI->getValue().getLimitedValue() + mem_offset;
+									}
+								}
+							}
+						}
+					}
+				}
+				if (llvm::ConstantExpr *C = dyn_cast < llvm::ConstantExpr > (ce)) {
+					Value *tmp = C->getOperand(0);
+					if (ConstantInt *CI = dyn_cast < llvm::ConstantInt > (tmp)) {
+#ifdef DEBUG
+						errs() << "Field IO access found to:" << CI->getValue().getLimitedValue() + mem_offset << "\n";
+#endif
+						addr = CI->getValue().getLimitedValue() + mem_offset;
+					}
+				}
+				if (GlobalVariable *gv = dyn_cast < GlobalVariable > (ce)) {
+					if (llvm::ConstantExpr *C = dyn_cast < llvm::ConstantExpr > (gv->getInitializer())) {
+						Value *tmp = C->getOperand(0);
+						if (ConstantInt *CI = dyn_cast < llvm::ConstantInt > (tmp)) {
+#ifdef DEBUG
+							errs() << "GLOBAL Field IO access found to:" << CI->getValue().getLimitedValue() + mem_offset << "\n";
+#endif
+							addr = CI->getValue().getLimitedValue() + mem_offset;
+						}
+					}
+				}
+			}
+		}
+		return addr;
+	}
+
+	unsigned long getAddrFromITP(llvm::ConstantExpr *ce) {
+		unsigned long addr = 0;
+		/* At higher optimizations this happens */
+		const APInt intval;
+		Value *tmp = ce->getOperand(0);
+		if (ConstantInt *CI = dyn_cast < llvm::ConstantInt > (tmp)) {
+#ifdef DEBUG
+			errs() << "Local IO access found to:" << CI->getValue().getLimitedValue() << "\n";
+#endif
+			addr = CI->getValue().getLimitedValue();
+		}
+		return addr;
+	}
+
+	unsigned long getAddrFromLoad(llvm::Instruction *insn) {
+		unsigned long addr = 0;
+		llvm::Value *src = insn->getOperand(0);
+		if (GlobalVariable *gv = dyn_cast < GlobalVariable > (src)) {
+			if (llvm::ConstantExpr *C = dyn_cast < llvm::ConstantExpr > (gv->getInitializer())) {
+				Value *tmp = C->getOperand(0);
+				if (ConstantInt *CI = dyn_cast < llvm::ConstantInt > (tmp)) {
+#if DEBUG
+					errs() << "GLOBAL Field IO access found to:" << CI->getValue().getLimitedValue() + mem_offset << "\n";
+#endif
+					addr = CI->getValue().getLimitedValue();
+				}
+			}
+		}
+		if (auto bc = dyn_cast < llvm::ConstantExpr > (src)) {
+			llvm::Value *castee = bc->getOperand(0);
+			if (GlobalVariable *gv = dyn_cast < GlobalVariable > (castee)) {
+				if (llvm::ConstantExpr *C = dyn_cast < llvm::ConstantExpr > (gv->getInitializer())) {
+					Value *tmp = C->getOperand(0);
+					if (ConstantInt *CI = dyn_cast < llvm::ConstantInt > (tmp)) {
+#if DEBUG
+						errs() << "GLOBAL Field IO access found to:" << CI->getValue().getLimitedValue() + mem_offset << "\n";
+#endif
+						addr = CI->getValue().getLimitedValue();
+					}
+				}
+			}
+
+		}
+
+		return addr;
+	}
+
+	void getIPAPointers(Function &F) {
+
+		for (auto U : F.users()) {
+			if (llvm::CallInst *call = dyn_cast < llvm::CallInst > (U)) {
+				for (auto arg = call->arg_begin(); arg != call->arg_end(); ++arg) {
+					errs() << *arg->get() << "\n";
+					unsigned long addr;
+					if (auto insn = dyn_cast < llvm::Instruction > (arg->get())) {
+						addr = getAddrFromGEP(insn);
+						if (addr) {
+							errs() << "Argument type GEP:" << addr << "\n";
+						}
+					}
+					if (auto ce = dyn_cast < llvm::ConstantExpr > (arg->get())) {
+						addr = getAddrFromITP(ce);
+						if (addr) {
+							errs() << "Argument Direct Cast:" << addr << "\n";
+						}
+					}
+				}
+			}
+		}
+		/* Arguments as seen in this function */
+		for (auto arg = F.arg_begin(); arg != F.arg_end(); ++arg) {
+			if (auto *ci = dyn_cast < ConstantInt > (arg))
+				errs() << ci->getValue() << "\n";
+#ifdef DEBUG
+			errs() << "Arg \n" << *arg << "\n";
+#endif
+		}
+	}
+
+	// Hello2 - The second implementation with getAnalysisUsage implemented.
+	struct Hello2: public FunctionPass {
+		static char ID; // Pass identification, replacement for typeid
+		Hello2() :      // Developer's favorite food is salty finger
+			FunctionPass(ID) {
+			}
+
+		unsigned getAddrFromDest(llvm::Value *dest, Function &F) {
+			unsigned addr = 0;
+			/* See if it is a scalar value */
+			if (auto ce = dyn_cast < llvm::ConstantExpr > (dest)) {
+				addr = getAddrFromITP(ce);
+				if (addr) {
+					errs() << "Direct Access:" << addr << "\n";
+				}
+			}
+			/* See if it a vector/array */
+			if (auto insn = dyn_cast < llvm::Instruction > (dest)) {
+				addr = getAddrFromGEP(insn);
+				if (addr) {
+					errs() << "GEP :" << addr << "\n";
+				}
+				addr = getAddrFromLoad(insn);
+				if (addr) {
+					errs() << "Load:" << addr << "\n";
+				}
+			}
+
+			if (auto arg = dyn_cast < llvm::Argument > (dest)) {
+				unsigned int num = arg->getArgNo();
+				addr = getAddrFromArg(&F, num);
+			}
+
+			if (auto call = dyn_cast < llvm::CallInst > (dest)) {
+				Function *calee = call->getCalledFunction();
+				if (!calee) {
+					/* TODO: Add support for indirect calls */
+					return 0;
+				}
+
+				Function::iterator bb = --(calee->end());
+				BasicBlock::iterator insn = --(bb->end());
+
+				if (auto ret = dyn_cast < llvm::ReturnInst > (insn)) {
+					addr = getAddrFromDest(ret->getOperand(0), F);
+				}
+			}
+
+			return addr;
+		}
+		unsigned getAddrFromArg(Function *F, unsigned num) {
+			unsigned addr = 0;
+			for (auto U : F->users()) {
+				if (llvm::CallInst *call = dyn_cast < llvm::CallInst > (U)) {
+					auto arg = call->getArgOperand(num);
+					if (arg) {
+						if (auto insn = dyn_cast < llvm::Instruction > (arg)) {
+							addr = getAddrFromGEP(insn);
+#define DEBUG
+#ifdef DEBUG
+							if (addr) {
+								errs() << "Argument type GEP:" << addr << "\n";
+							}
+#endif
+						}
+						if (auto ce = dyn_cast < llvm::ConstantExpr > (arg)) {
+							addr = getAddrFromITP(ce);
+#ifdef DEBUG
+							if (addr) {
+								errs() << "Argument Direct Cast:" << addr << "\n";
+							}
+#endif
+#undef DEBUG
+						}
+						if (auto nestArg = dyn_cast < llvm::Argument > (arg)) {
+							F = call->getFunction();
+							unsigned int num = nestArg->getArgNo();
+							addr = getAddrFromArg(F, num);
+						}
+					}
+				}
+			}
+			return addr;
+		}
+
+		bool runOnInstruction(BasicBlock::iterator insn, Function &F) {
+			unsigned long addr = 0;
+#if 0 
+			/* Store Instruction */
+			if (auto str = dyn_cast < StoreInst > (insn)) {
+				/* We only care about volatile instructions */
+				if (str->isVolatile()) {
+					llvm::Value *dest = str->getOperand(1);
+
+					addr = getAddrFromDest(dest, F);
+
+					if (!addr) {
+						if (dest)
+							CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
+						errs() << "Couldn't determine addr" << *dest;
+					}
+				}
+			}
+#endif 
+			CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
+			CallGraphNode *cgm = CG[M.getFunction("main")];
+			for (CallGraphNode::iterator ti = cgm->begin(); ti != cgm->end(); ++ti)
+			{
+				CallGraphNode * cgn = ti->second;
+				if(cgn==NULL)
+					continue;
+				errs()<<cgn->getFunction()<<"\n";
+				errs()<<cgn->getFunction()->getName()<<"\n";
+			}
+			return false;
+		}
+
+		return false;
+	}
+
+	bool runOnFunction(Function &F) override {
+		bool mod;
+		static int i = 0;
+		errs().write_escaped(F.getName()) << '\n';
+		CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
+		//getIPAPointers(F, CG);
+
+		for (Function::iterator bb = F.begin(); bb != F.end(); ++bb) {
+			for (BasicBlock::iterator insn = bb->begin(); insn != bb->end(); ++insn) {
+				mod |= runOnInstruction(insn, F);
+			}
+		}
+		return mod;
+	}
+
+	// We don't modify the program, so we preserve all analyses.
+	void getAnalysisUsage(AnalysisUsage &AU) const override {
+		AU.addRequired<CallGraphWrapperPass>();
+		AU.setPreservesAll();
+	}
+}
+;
+}
+char Hello2::ID = 0;
+static RegisterPass<Hello2> Y("hello2", "Hello World Pass (with getAnalysisUsage implemented)");
