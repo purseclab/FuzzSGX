@@ -1,9 +1,5 @@
 # FuzzSGX
-**FuzzSGX** is a fuzzer for Intel SGX SDK enclaves. It is brought to you by the folks at [Pursec Lab](https://pursec.cs.purdue.edu/). For queries, either use GitHub issues (preferred method), or email the authors: 
-
-[Arslan Khan](mailto:khan253@purdue.edu?subject=[GitHub]%20Source%20Han%20Sans)
-
-[Muqi Zou](mailto:zou116@purdue.edu?subject=[GitHub]%20Source%20Han%20Sans)
+**FuzzSGX** is a fuzzer for Intel SGX SDK enclaves. It is brought to you by the folks at [Pursec Lab](https://pursec.cs.purdue.edu/). For queries, either use GitHub issues (preferred method), or email the authors ([Arslan Khan](mailto:khan253@purdue.edu?subject=[GitHub]%20Source%20Han%20Sans) / [Muqi Zou](mailto:zou116@purdue.edu?subject=[GitHub]%20Source%20Han%20Sans))
 
 
 ## FuzzSGX dependencies:
@@ -38,5 +34,18 @@ The easiest way is to just run the example project.
 
 ## Supporting a new project:
 TODO: Will add this soon too. 
+
+## Citing this work.
+If you like or use our work. Please cite us using:
+```@INPROCEEDINGS{10190488,
+  author={Khan, Arslan and Zou, Muqi and Kim, Kyungtae and Xu, Dongyan and Bianchi, Antonio and Tian, Dave Jing},
+  booktitle={2023 IEEE 8th European Symposium on Security and Privacy (EuroS&P)}, 
+  title={Fuzzing SGX Enclaves via Host Program Mutations}, 
+  year={2023},
+  volume={},
+  number={},
+  pages={472-488},
+  doi={10.1109/EuroSP57164.2023.00035}}
+```
 
 
